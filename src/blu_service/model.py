@@ -8,7 +8,7 @@ from pathlib import Path
 from PIL import Image
 from ultralytics import YOLO
 
-from blu_service.logic import Deteccao
+from .logic import Deteccao
 
 _MODEL_PATH = os.environ.get("BLU_MODEL_PATH", "best.pt")
 

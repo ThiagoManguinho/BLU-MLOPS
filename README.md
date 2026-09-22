@@ -242,8 +242,12 @@ justfile          - atalhos: setup, serve, demo, lint, test, docker
 
 ## Diferenciais implementados
 
-- `just docker` gera a imagem de container via `bentoml build` +
-  `bentoml containerize` .
+- **Container Docker**: `just docker` empacota o Bento e gera a imagem via
+  `bentoml build` + `bentoml containerize ... --image-tag blu_service:latest`
+  (o `--image-tag` fixa o nome da imagem; sem ele, cada build gera uma tag
+  com hash aleatório). Depois, `just docker-run` (ou
+  `docker run --rm -p 3000:3000 blu_service:latest`) sobe o container.
+  Testado de ponta a ponta.
 - Comando único do clone à predição: `uv sync && just serve`.
 - Proveniência do modelo documentada (seção 5).
 - `ruff` rodando em CI (`.github/workflows/ci.yml`).

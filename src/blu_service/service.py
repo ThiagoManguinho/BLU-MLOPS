@@ -17,9 +17,9 @@ from pathlib import Path
 import bentoml
 from PIL import Image, UnidentifiedImageError
 
-from blu_service import model
-from blu_service.logic import ResultadoOcupacao, classificar_ocupacao
-from blu_service.render import anotar_imagem
+from . import model
+from .logic import ResultadoOcupacao, classificar_ocupacao
+from .render import anotar_imagem
 
 _LIMIAR_CONFIANCA = float(os.environ.get("BLU_CONF_THRESHOLD", "0.25"))
 

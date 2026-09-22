@@ -14,7 +14,7 @@ import io
 
 from PIL import Image, ImageDraw, ImageFont
 
-from blu_service.logic import ResultadoOcupacao
+from .logic import ResultadoOcupacao
 
 _COR_LIVRE = (46, 204, 113)  # verde
 _COR_OCUPADA = (231, 76, 60)  # vermelho

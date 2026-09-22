@@ -12,3 +12,15 @@ python:
     - torch>=2.2,<3
     - pillow>=10.0
     - numpy>=1.26
+docker:
+  python_version: "3.11"
+  # A ultralytics puxa o opencv, que carrega bibliotecas gráficas do sistema
+  # (libGL, libxcb, ...). A imagem base slim não as traz, e sem elas o import
+  # falha com "libxcb.so.1: cannot open shared object file".
+  system_packages:
+    - libgl1
+    - libglib2.0-0
+    - libxcb1
+    - libsm6
+    - libxext6
+    - libxrender1
