@@ -1,0 +1,25 @@
+# Datasets (grandes, não versionados; ver README para origem)
+train-maquete/
+valid-maquete/
+*.cache
+
+# Ambiente Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# BentoML
+bentoml_build/
+*.bento
+
+# Segredos locais
+.env
+
+# SO / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+best.pt
