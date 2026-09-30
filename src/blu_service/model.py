@@ -1,5 +1,3 @@
-"""Carregamento e execução do modelo YOLOv8-OBB (best.pt)."""
-
 from __future__ import annotations
 
 import os

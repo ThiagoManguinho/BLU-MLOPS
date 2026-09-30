@@ -1,16 +1,3 @@
-"""Regra de negócio do BLU: mapeia detecções do modelo para o estado_vaga do
-Project Charter.
-
-O modelo foi treinado com duas classes que representam o *estado* de uma
-vaga, não dois tipos de objeto a serem cruzados geometricamente:
-
-- ``vaga``  -> a vaga está LIVRE
-- ``carro`` -> a vaga está OCUPADA
-
-Cada detecção do modelo já É uma vaga com o seu estado. Não há sobreposição
-de caixas a calcular.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -23,16 +10,14 @@ CLASSE_PARA_ESTADO = {
 
 @dataclass(frozen=True)
 class Deteccao:
-    """Uma detecção bruta do modelo, antes do filtro de confiança."""
-
+    
     classe: str
     confianca: float
-    obb: list[list[float]]  # 4 cantos [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
+    obb: list[list[float]]  
 
 
 @dataclass(frozen=True)
 class Vaga:
-    """Uma vaga já classificada, pronta para o contrato de saída da API."""
 
     id: int
     estado: str
@@ -53,13 +38,7 @@ class ResultadoOcupacao:
 def classificar_ocupacao(
     deteccoes: list[Deteccao], limiar_confianca: float
 ) -> ResultadoOcupacao:
-    """Aplica o filtro de confiança e agrega as detecções em um resultado.
-
-    Detecções abaixo de ``limiar_confianca`` não são classificadas como
-    LIVRE nem OCUPADA — ficam de fora da contagem e aparecem em
-    ``vagas_descartadas_baixa_confianca``, alinhado ao item "fora do escopo"
-    do Charter: não estimar estado quando a confiança da detecção é baixa.
-    """
+   
     vagas: list[Vaga] = []
     descartadas = 0
 
@@ -70,8 +49,6 @@ def classificar_ocupacao(
 
         estado = CLASSE_PARA_ESTADO.get(deteccao.classe)
         if estado is None:
-            # Classe desconhecida (não deveria ocorrer com este modelo) —
-            # trata como descarte em vez de quebrar a resposta.
             descartadas += 1
             continue
 

@@ -1,13 +1,3 @@
-"""Desenha o resultado já classificado (ResultadoOcupacao) sobre a imagem
-original, para inspeção visual.
-
-Propositalmente não usa o `result.plot()` da ultralytics: aquele método
-desenharia os rótulos brutos do modelo ("vaga"/"carro") e ignoraria o filtro
-de confiança aplicado em `logic.py`. Desenhar a partir do `ResultadoOcupacao`
-garante que a imagem mostre exatamente o que o JSON de `/prever_ocupacao`
-reporta — mesmos rótulos (LIVRE/OCUPADA), mesmo limiar.
-"""
-
 from __future__ import annotations
 
 import io
@@ -29,7 +19,7 @@ def _fonte(tamanho: int) -> ImageFont.ImageFont:
 
 
 def anotar_imagem(imagem: Image.Image, resultado: ResultadoOcupacao) -> bytes:
-    """Desenha as OBBs classificadas sobre a imagem e devolve os bytes em JPEG."""
+    
     imagem_anotada = imagem.convert("RGB").copy()
     desenho = ImageDraw.Draw(imagem_anotada)
     fonte = _fonte(max(16, imagem_anotada.width // 60))
