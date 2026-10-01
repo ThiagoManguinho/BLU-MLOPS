@@ -45,9 +45,14 @@ ultralytics), quase instantâneo nas seguintes.
 Suba o serviço:
 
 ```bash
-uv run bentoml serve src.blu_service.service:BluService --port 3000
+uv run python -m bentoml serve src.blu_service.service:BluService --port 3000
 # ou, com just instalado: just serve
 ```
+
+> Os comandos usam `python -m bentoml` em vez do atalho `bentoml`. No Windows,
+> o atalho é um `.exe` não assinado gerado dentro do `.venv`, e políticas de
+> Controle de Aplicativo (Smart App Control / WDAC) podem bloqueá-lo com
+> `os error 4551`. Chamar como módulo Python é equivalente e sempre funciona.
 
 O Swagger fica em `http://localhost:3000` assim que o log mostrar
 `Service blu_service initialized` (leva alguns segundos após o servidor
@@ -139,8 +144,8 @@ o modelo já foi carregado.
 
 ## 4. Três casos de sucesso e um caso de erro
 
-Com o serviço rodando (`uv run bentoml serve ...`), execute (Git Bash, WSL ou
-Linux/macOS):
+Com o serviço rodando (`uv run python -m bentoml serve ...`), execute (Git Bash,
+WSL ou Linux/macOS):
 
 ```bash
 # Caso 1 — maioria das vagas livres
@@ -243,11 +248,13 @@ justfile          - atalhos: setup, serve, demo, lint, test, docker
 ## Diferenciais implementados
 
 - **Container Docker**: `just docker` empacota o Bento e gera a imagem via
-  `bentoml build` + `bentoml containerize ... --image-tag blu_service:latest`
-  (o `--image-tag` fixa o nome da imagem; sem ele, cada build gera uma tag
-  com hash aleatório). Depois, `just docker-run` (ou
+  `python -m bentoml build` + `python -m bentoml containerize ... --image-tag
+  blu_service:latest` (o `--image-tag` fixa o nome da imagem; sem ele, cada
+  build gera uma tag com hash aleatório). Depois, `just docker-run` (ou
   `docker run --rm -p 3000:3000 blu_service:latest`) sobe o container.
-  Testado de ponta a ponta.
+  O `bentofile.yaml` instala as bibliotecas de sistema que o OpenCV (puxado
+  pela ultralytics) exige em imagem slim — sem elas o container falha com
+  `libxcb.so.1: cannot open shared object file`.
 - Comando único do clone à predição: `uv sync && just serve`.
 - Proveniência do modelo documentada (seção 5).
 - `ruff` rodando em CI (`.github/workflows/ci.yml`).

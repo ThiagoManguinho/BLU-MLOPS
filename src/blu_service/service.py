@@ -26,6 +26,10 @@ class _ModeloIndisponivel(Exception):
 
 
 def _avaliar(imagem: Path) -> tuple[Image.Image, ResultadoOcupacao]:
+
+    """Carrega e classifica a imagem. Levanta as exceções acima em caso de
+    erro, para que cada endpoint decida como respondê-las (JSON de erro no
+    endpoint de JSON, imagem de erro não faz sentido no endpoint de imagem)."""
    
     try:
         imagem_pil = Image.open(imagem)
@@ -44,10 +48,16 @@ def _avaliar(imagem: Path) -> tuple[Image.Image, ResultadoOcupacao]:
 
 @bentoml.service(name="blu_service")
 class BluService:
+
+    """Detecta o estado (LIVRE/OCUPADA) de vagas de estacionamento a partir
+    de uma imagem, usando o modelo YOLOv8-OBB treinado pela equipe BLU."""
     
 
     @bentoml.api(route="/prever_ocupacao")
     def prever_ocupacao(self, imagem: Path, ctx: bentoml.Context) -> dict:
+
+        """Classifica a ocupação das vagas de estacionamento em uma imagem, reetona um JSON com os resultados OCUPADA ou LIVRE
+        com os valores de localização e confiança."""
         
         try:
             _imagem_pil, resultado = _avaliar(imagem)
@@ -79,6 +89,12 @@ class BluService:
 
     @bentoml.api(route="/prever_ocupacao_imagem")
     def prever_ocupacao_imagem(self, imagem: Path, ctx: bentoml.Context) -> Image.Image:
+
+        """Mesma classificação de `/prever_ocupacao`, mas devolve a imagem
+        original com as vagas desenhadas: contorno verde + rótulo "LIVRE" ou
+        contorno vermelho + rótulo "OCUPADA", cada um com a confiança do
+        modelo. Útil para conferir visualmente o que o JSON está reportando.
+        """
         
         try:
             imagem_pil, resultado = _avaliar(imagem)

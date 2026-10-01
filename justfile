@@ -6,19 +6,25 @@
 # própria, porque usa sintaxe de shell (`&`, `kill %1`) que só bash entende.
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
+# Os comandos abaixo usam `python -m bentoml` em vez do atalho `bentoml`.
+# O atalho é um .exe gerado dentro do .venv e não é assinado digitalmente;
+# políticas de Controle de Aplicativo do Windows (Smart App Control / WDAC)
+# bloqueiam esse tipo de binário com "os error 4551". Chamar como módulo
+# Python evita o problema e é equivalente.
+
 # Instala as dependências fixadas em uv.lock.
 setup:
     uv sync
 
 # Sobe o serviço BentoML (Swagger em http://localhost:3000).
 serve:
-    uv run bentoml serve src.blu_service.service:BluService --port 3000
+    uv run python -m bentoml serve src.blu_service.service:BluService --port 3000
 
 # Sobe o serviço em segundo plano, roda os 3 curls de exemplo e derruba tudo.
 # Requer bash (Git Bash no Windows) e `curl` no PATH.
 demo:
     #!/usr/bin/env bash
-    uv run bentoml serve src.blu_service.service:BluService --port 3000 &
+    uv run python -m bentoml serve src.blu_service.service:BluService --port 3000 &
     sleep 5
     curl -s -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_livre.jpeg"
     echo ""
@@ -32,18 +38,18 @@ demo:
 
 # Roda o lint (ruff).
 lint:
-    uv run ruff check .
+    uv run python -m ruff check .
 
 # Roda os testes.
 test:
-    uv run pytest -q
+    uv run python -m pytest -q
 
 # Gera a imagem de container do serviço (requer Docker instalado).
 # --image-tag fixa a tag da imagem Docker como blu_service:latest; sem isso,
 # o bentoml gera uma tag com hash aleatório a cada build.
 docker:
-    uv run bentoml build
-    uv run bentoml containerize blu_service:latest --image-tag blu_service:latest
+    uv run python -m bentoml build
+    uv run python -m bentoml containerize blu_service:latest --image-tag blu_service:latest
 
 # Roda o container gerado por `just docker`.
 docker-run:
