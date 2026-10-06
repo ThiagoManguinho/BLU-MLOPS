@@ -291,7 +291,13 @@ requirements.txt  - instala as ferramentas uv e just via pip (não as dependênc
   `docker run --rm -p 3000:3000 blu_service:latest`) sobe o container.
   O `bentofile.yaml` instala as bibliotecas de sistema que o OpenCV (puxado
   pela ultralytics) exige em imagem slim — sem elas o container falha com
-  `libxcb.so.1: cannot open shared object file`.
+  `libxcb.so.1: cannot open shared object file` — e aponta o `torch` para o
+  índice CPU-only do PyTorch. Essa segunda parte importa: no Linux, o wheel
+  padrão do `torch` no PyPI traz suporte a GPU e arrasta ~2,4 GB de
+  dependências NVIDIA/CUDA (cudnn, cublas, nccl, triton…) que este serviço
+  nunca usa, já que a inferência roda em CPU. Com o índice CPU-only, os
+  downloads do container caem de **3,2 GB para ~0,35 GB** (de 111 para 90
+  pacotes), e o build fica proporcionalmente mais rápido.
 - Comando único do clone à predição: `uv sync && just serve`.
 - Proveniência do modelo documentada (seção 5).
 - `ruff` rodando em CI (`.github/workflows/ci.yml`).
