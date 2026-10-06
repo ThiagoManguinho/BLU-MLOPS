@@ -26,21 +26,57 @@ vaga na imagem.
 
 ## 2. Do clone à primeira predição
 
-**Pré-requisitos:** [uv](https://docs.astral.sh/uv/) instalado (gerencia o
-Python 3.11 e as dependências sozinho — não é preciso instalar Python 3.11 à
-parte). Opcionalmente, [just](https://github.com/casey/just) para os atalhos
+**Pré-requisitos:** `git` e **Python 3.11 ou superior** já instalado na
+máquina. O [uv](https://docs.astral.sh/uv/) usa o Python que você já tem — ele
+está configurado para **nunca** baixar um interpretador próprio
+(`python-downloads = "never"` e `python-preference = "only-system"` no
+`pyproject.toml`) — e cuida apenas das dependências do projeto. O
+[just](https://github.com/casey/just) é opcional e serve para os atalhos
 abaixo.
+
+Clone o repositório e instale o `uv` e o `just` pelo
+[requirements.txt](requirements.txt):
 
 ```bash
 git clone <url-do-repositorio>
 cd BLU-MLOPS
 
-# uv baixa o Python 3.11 se necessário e instala as dependências fixadas em uv.lock
+# Linux / macOS
+python3 -m pip install --user -r requirements.txt
+
+# Windows (PowerShell)
+python -m pip install -r requirements.txt
+```
+
+Confira se as ferramentas ficaram no PATH:
+
+```bash
+uv --version
+just --version
+```
+
+> Se aparecer "comando não encontrado" ou "não é reconhecido", **feche e
+> reabra o terminal**. No Linux, se continuar, adicione `~/.local/bin` ao PATH
+> com `export PATH="$HOME/.local/bin:$PATH"`.
+>
+> Em Debian 12+/Ubuntu 23.04+ o pip pode recusar com
+> `externally-managed-environment`. Nesse caso use
+> `python3 -m pip install --user --break-system-packages -r requirements.txt`.
+> O comando instala só para o seu usuário e não mexe nos pacotes do sistema.
+> Outra opção é o instalador oficial, que dispensa o Python:
+> `curl -LsSf https://astral.sh/uv/install.sh | sh`.
+
+Instale as dependências do projeto:
+
+```bash
+# cria o .venv com o Python já instalado e instala as dependências de uv.lock
 uv sync
 ```
 
-Tempo esperado: **~2–4 minutos** na primeira vez (download de torch e
-ultralytics), quase instantâneo nas seguintes.
+Tempo esperado: **~2–5 minutos** na primeira vez, quase instantâneo nas
+seguintes. O volume vem das dependências de visão computacional — o ambiente
+final ocupa cerca de **935 MB**, sendo `torch` (~450 MB), o runtime do `polars`
+(~170 MB) e o `opencv` (~110 MB) os três maiores.
 
 Suba o serviço:
 
@@ -243,6 +279,7 @@ samples/         - 3 imagens de exemplo + 1 arquivo inválido, para os testes da
 best.pt           - pesos do modelo (versionado; ver seção 5)
 bentofile.yaml    - manifesto de build/containerização do BentoML
 justfile          - atalhos: setup, serve, demo, lint, test, docker
+requirements.txt  - instala as ferramentas uv e just via pip (não as dependências do serviço)
 ```
 
 ## Diferenciais implementados
