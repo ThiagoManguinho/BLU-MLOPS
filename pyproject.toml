@@ -16,6 +16,10 @@ dependencies = [
 dev = [
     "ruff>=0.6",
     "pytest>=8.0",
+    # `rust-just` empacota o binário do just (https://github.com/casey/just)
+    # como wheel Python, então `uv sync` já deixa os atalhos do justfile
+    # prontos — não é preciso instalar o just à parte.
+    "rust-just>=1.58,<2",
 ]
 
 [tool.uv]

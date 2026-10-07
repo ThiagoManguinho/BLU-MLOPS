@@ -3,10 +3,19 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import bentoml
 from PIL import Image
-from ultralytics import YOLO
 
 from .logic import Deteccao
+
+# `bentoml.importing()` marca a ultralytics (e o torch, que ela carrega) como
+# dependência de *runtime*: ela precisa existir quando o serviço atende uma
+# requisição, mas não quando o `bentoml build` apenas inspeciona a API para
+# montar o Bento. Sem isso, o build quebra em qualquer máquina onde o torch
+# não possa ser importado — por exemplo, no Windows com Smart App Control
+# ligado, que bloqueia as DLLs não assinadas do PyTorch.
+with bentoml.importing():
+    from ultralytics import YOLO
 
 _MODEL_PATH = os.environ.get("BLU_MODEL_PATH", "best.pt")
 

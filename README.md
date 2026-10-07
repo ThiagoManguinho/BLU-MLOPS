@@ -30,11 +30,9 @@ vaga na imagem.
 máquina. O [uv](https://docs.astral.sh/uv/) usa o Python que você já tem — ele
 está configurado para **nunca** baixar um interpretador próprio
 (`python-downloads = "never"` e `python-preference = "only-system"` no
-`pyproject.toml`) — e cuida apenas das dependências do projeto. O
-[just](https://github.com/casey/just) é opcional e serve para os atalhos
-abaixo.
+`pyproject.toml`) — e cuida de todo o resto.
 
-Clone o repositório e instale o `uv` e o `just` pelo
+Clone o repositório e instale o `uv` pelo
 [requirements.txt](requirements.txt):
 
 ```bash
@@ -48,11 +46,10 @@ python3 -m pip install --user -r requirements.txt
 python -m pip install -r requirements.txt
 ```
 
-Confira se as ferramentas ficaram no PATH:
+Confira se ficou no PATH:
 
 ```bash
 uv --version
-just --version
 ```
 
 > Se aparecer "comando não encontrado" ou "não é reconhecido", **feche e
@@ -73,6 +70,11 @@ Instale as dependências do projeto:
 uv sync
 ```
 
+Isso também instala o [just](https://github.com/casey/just) (via o pacote
+`rust-just`), usado nos atalhos deste README. Depois do `uv sync`, use-o como
+`uv run just <receita>` — ou apenas `just <receita>`, se o `.venv` estiver
+ativado. Para ver as receitas disponíveis: `uv run just --list`.
+
 Tempo esperado: **~2–5 minutos** na primeira vez, quase instantâneo nas
 seguintes. O volume vem das dependências de visão computacional — o ambiente
 final ocupa cerca de **935 MB**, sendo `torch` (~450 MB), o runtime do `polars`
@@ -82,7 +84,7 @@ Suba o serviço:
 
 ```bash
 uv run python -m bentoml serve src.blu_service.service:BluService --port 3000
-# ou, com just instalado: just serve
+# ou, pelo atalho: uv run just serve
 ```
 
 > Os comandos usam `python -m bentoml` em vez do atalho `bentoml`. No Windows,
@@ -232,6 +234,36 @@ desta entrega. O modelo em si (`best.pt`) **não** foi gerado por IA generativa
 de texto — é um checkpoint de visão computacional treinado pela equipe com
 ultralytics/YOLO sobre dados próprios.
 
+## 6.1. Problema conhecido no Windows: Smart App Control
+
+Se ao rodar `just serve` aparecer:
+
+```
+DLL load failed while importing _C: Uma política de Controle de Aplicativo
+bloqueou este arquivo.
+```
+
+o **Smart App Control** do Windows está bloqueando as DLLs do PyTorch, que não
+são assinadas digitalmente. Para confirmar:
+
+```powershell
+(Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy").VerifiedAndReputablePolicyState
+# 0 = desligado | 1 = ligado (bloqueia) | 2 = modo avaliação
+```
+
+Não é um problema do projeto: qualquer `import torch` nessa máquina falha do
+mesmo jeito. Há dois caminhos:
+
+1. **Rodar pelo container** (recomendado). Dentro do container é Linux, e a
+   política não se aplica. O `bentoml build` funciona mesmo com o torch
+   bloqueado, porque `src/blu_service/model.py` envolve o import da
+   ultralytics em `bentoml.importing()` — isso marca o torch como dependência
+   de *runtime*, necessária para atender requisições, mas não para o build
+   inspecionar a API.
+2. **Desligar o Smart App Control** (Windows Security → Controle de aplicativos
+   e navegador → Smart App Control → Desativado) e reiniciar. ⚠️ É
+   irreversível: só dá para religar reinstalando o Windows.
+
 ## 7. Limitações conhecidas
 
 - **Dataset de maquete, não de via pública real.** O modelo nunca viu uma
@@ -269,8 +301,8 @@ tests/
 samples/         - 3 imagens de exemplo + 1 arquivo inválido, para os testes da seção 4
 best.pt           - pesos do modelo (versionado; ver seção 5)
 bentofile.yaml    - manifesto de build/containerização do BentoML
-justfile          - atalhos: setup, serve, demo, lint, test, docker
-requirements.txt  - instala as ferramentas uv e just via pip (não as dependências do serviço)
+justfile          - atalhos: serve, demo, lint, test, docker, docker-run
+requirements.txt  - instala só o uv via pip (não as dependências do serviço)
 ```
 
 ## Diferenciais implementados
