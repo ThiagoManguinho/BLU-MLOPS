@@ -169,15 +169,6 @@ curl -X POST http://localhost:3000/prever_ocupacao_imagem \
 
 Abra `resultado_anotado.jpg` para ver o resultado.
 
-### `POST /health`
-
-Sem corpo obrigatório (`{}` funciona). Retorna se o serviço está de pé e se
-o modelo já foi carregado.
-
-```json
-{"status": "ok", "modelo_carregado": true, "limiar_confianca": 0.25}
-```
-
 ## 4. Três casos de sucesso e um caso de erro
 
 Com o serviço rodando (`uv run python -m bentoml serve ...`), execute (Git Bash,
@@ -271,7 +262,7 @@ src/blu_service/
   model.py      - carrega best.pt e roda a inferência (ultralytics YOLO)
   logic.py      - regra de negócio: classe → estado_vaga, agregação, limiar
   render.py     - desenha o ResultadoOcupacao sobre a imagem (endpoint de imagem)
-  service.py    - endpoints BentoML (/prever_ocupacao, /prever_ocupacao_imagem, /health)
+  service.py    - endpoints BentoML (/prever_ocupacao, /prever_ocupacao_imagem)
 tests/
   test_logic.py  - testes da regra de negócio (rápidos, sem carregar o modelo)
   test_render.py - testes do desenho das anotações (rápidos, sem carregar o modelo)
@@ -301,4 +292,4 @@ requirements.txt  - instala as ferramentas uv e just via pip (não as dependênc
 - Comando único do clone à predição: `uv sync && just serve`.
 - Proveniência do modelo documentada (seção 5).
 - `ruff` rodando em CI (`.github/workflows/ci.yml`).
-- `/health` responde ao status do serviço e do modelo.
+- O health check padrão `healthz` do BentoML verifica a disponibilidade do serviço.

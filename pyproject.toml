@@ -19,8 +19,6 @@ dev = [
 ]
 
 [tool.uv]
-# Usa exclusivamente o Python já instalado na máquina: o uv nunca baixa um
-# interpretador próprio nem usa um que ele tenha baixado antes.
 # Qualquer Python >= 3.11 serve (ver requires-python acima).
 python-downloads = "never"
 python-preference = "only-system"

@@ -6,16 +6,6 @@
 # própria, porque usa sintaxe de shell (`&`, `kill %1`) que só bash entende.
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
-# Os comandos abaixo usam `python -m bentoml` em vez do atalho `bentoml`.
-# O atalho é um .exe gerado dentro do .venv e não é assinado digitalmente;
-# políticas de Controle de Aplicativo do Windows (Smart App Control / WDAC)
-# bloqueiam esse tipo de binário com "os error 4551". Chamar como módulo
-# Python evita o problema e é equivalente.
-
-# Instala as dependências fixadas em uv.lock.
-setup:
-    uv sync
-
 # Sobe o serviço BentoML (Swagger em http://localhost:3000).
 serve:
     uv run python -m bentoml serve src.blu_service.service:BluService --port 3000

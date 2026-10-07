@@ -104,11 +104,3 @@ class BluService:
             return Image.new("RGB", (1, 1))
 
         return Image.open(io.BytesIO(anotar_imagem(imagem_pil, resultado)))
-
-    @bentoml.api(route="/health")
-    def health(self) -> dict:
-        return {
-            "status": "ok",
-            "modelo_carregado": model.modelo_carregado(),
-            "limiar_confianca": _LIMIAR_CONFIANCA,
-        }

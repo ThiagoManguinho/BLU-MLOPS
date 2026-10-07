@@ -12,17 +12,12 @@ python:
     - torch>=2.2,<3
     - pillow>=10.0
     - numpy>=1.26
-  # O wheel padrão do torch para Linux no PyPI vem com suporte a GPU e arrasta
-  # ~2,4 GB de dependências NVIDIA/CUDA (cudnn, cublas, nccl, triton...) que
-  # este serviço nunca usa: a inferência roda em CPU e o container não tem GPU.
-  # O índice abaixo serve a variante CPU-only do torch.
+  
   extra_index_url:
     - "https://download.pytorch.org/whl/cpu"
 docker:
   python_version: "3.11"
-  # A ultralytics puxa o opencv, que carrega bibliotecas gráficas do sistema
-  # (libGL, libxcb, ...). A imagem base slim não as traz, e sem elas o import
-  # falha com "libxcb.so.1: cannot open shared object file".
+  
   system_packages:
     - libgl1
     - libglib2.0-0
