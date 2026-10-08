@@ -49,15 +49,27 @@ def _avaliar(imagem: Path) -> tuple[Image.Image, ResultadoOcupacao]:
 @bentoml.service(name="blu_service")
 class BluService:
 
-    """Detecta o estado (LIVRE/OCUPADA) de vagas de estacionamento a partir
-    de uma imagem, usando o modelo YOLOv8-OBB treinado pela equipe BLU."""
+    """Serviço de inferência para classificação de vagas de estacionamento.
+
+    Recebe imagens e usa o modelo YOLOv8-OBB treinado pela equipe BLU para
+    identificar cada vaga como `LIVRE` ou `OCUPADA`.
+    """
     
 
     @bentoml.api(route="/prever_ocupacao")
     def prever_ocupacao(self, imagem: Path, ctx: bentoml.Context) -> dict:
 
-        """Classifica a ocupação das vagas de estacionamento em uma imagem, reetona um JSON com os resultados OCUPADA ou LIVRE
-        com os valores de localização e confiança."""
+        """Classifica a ocupação das vagas e retorna os resultados em JSON.
+
+        Para cada vaga detectada, a resposta informa o estado
+        (`LIVRE` ou `OCUPADA`), a confiança e os quatro pontos da caixa
+        orientada (`obb`). Também são retornados o total de vagas, as
+        quantidades livres e ocupadas, a taxa de ocupação e as detecções
+        descartadas por baixa confiança.
+
+        Retorna HTTP 400 quando o arquivo não é uma imagem válida e HTTP 503
+        quando o arquivo do modelo não está disponível.
+        """
         
         try:
             _imagem_pil, resultado = _avaliar(imagem)
@@ -90,10 +102,18 @@ class BluService:
     @bentoml.api(route="/prever_ocupacao_imagem")
     def prever_ocupacao_imagem(self, imagem: Path, ctx: bentoml.Context) -> Image.Image:
 
-        """Mesma classificação de `/prever_ocupacao`, mas devolve a imagem
-        original com as vagas desenhadas: contorno verde + rótulo "LIVRE" ou
-        contorno vermelho + rótulo "OCUPADA", cada um com a confiança do
-        modelo. Útil para conferir visualmente o que o JSON está reportando.
+        """Classifica a ocupação e devolve uma imagem anotada.
+
+        Recebe uma imagem como `multipart/form-data` no campo `imagem` e
+        retorna a imagem original com as vagas detectadas desenhadas sobre
+        ela. Vagas livres recebem contorno verde e o rótulo `LIVRE`; vagas
+        ocupadas recebem contorno vermelho e o rótulo `OCUPADA`. Cada rótulo
+        inclui a confiança do modelo.
+
+        A classificação e o limiar de confiança são os mesmos utilizados por
+        `/prever_ocupacao`, permitindo comparar a imagem anotada com a
+        resposta JSON. Em caso de arquivo inválido ou modelo indisponível,
+        retorna HTTP 400 e uma imagem RGB mínima de 1x1 pixel.
         """
         
         try:
