@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # O projeto usa python-downloads = "never" e python-preference =
+      # "only-system": o uv nunca baixa interpretador, usa o que já existe na
+      # máquina. No CI, quem provê esse Python "de sistema" é o setup-python.
+      - name: Instalar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Instalar dependências
+        run: uv sync
+
+      - name: ruff
+        run: uv run python -m ruff check .
+
+      - name: pytest (regra de negócio, sem modelo)
+        run: uv run python -m pytest -q

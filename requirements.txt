@@ -1,0 +1,3 @@
+# Única ferramenta que precisa ser instalada antes de clonar/entrar no projeto.
+# Todo o resto (inclusive o `just`) vem do `uv sync`, fixado em uv.lock.
+uv>=0.12,<1
