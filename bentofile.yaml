@@ -2,6 +2,20 @@ service: "src.blu_service.service:BluService"
 labels:
   owner: equipe-blu
   project: blu-mlops
+
+description: |
+  Serviço de detecção de ocupação de vagas de estacionamento (projeto BLU).
+
+  Recebe uma imagem de estacionamento e devolve o estado de cada vaga
+  detectada: LIVRE ou OCUPADA, com a confiança do modelo e a caixa orientada
+  (OBB) correspondente.
+
+  Endpoints:
+    - POST /prever_ocupacao        resposta em JSON
+    - POST /prever_ocupacao_imagem resposta em JPEG, com as vagas desenhadas
+
+  Modelo: YOLOv8n-OBB (ultralytics), treinado pela equipe BLU.
+  A decisão permanece humana: o serviço informa, não fiscaliza nem cobra.
 include:
   - "src/blu_service/**"
   - "best.pt"

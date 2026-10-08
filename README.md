@@ -27,10 +27,7 @@ vaga na imagem.
 ## 2. Do clone à primeira predição
 
 **Pré-requisitos:** `git` e **Python 3.11 ou superior** já instalado na
-máquina. O [uv](https://docs.astral.sh/uv/) usa o Python que você já tem — ele
-está configurado para **nunca** baixar um interpretador próprio
-(`python-downloads = "never"` e `python-preference = "only-system"` no
-`pyproject.toml`) — e cuida de todo o resto.
+máquina. 
 
 Clone o repositório e instale o `uv` pelo
 [requirements.txt](requirements.txt):
@@ -66,43 +63,85 @@ uv --version
 Instale as dependências do projeto:
 
 ```bash
-# cria o .venv com o Python já instalado e instala as dependências de uv.lock
 uv sync
 ```
 
-Isso também instala o [just](https://github.com/casey/just) (via o pacote
-`rust-just`), usado nos atalhos deste README. Depois do `uv sync`, use-o como
-`uv run just <receita>` — ou apenas `just <receita>`, se o `.venv` estiver
-ativado. Para ver as receitas disponíveis: `uv run just --list`.
+Esse único comando cria o ambiente virtual em **`.venv/`** (usando o Python que
+já está na sua máquina) e instala tudo que está fixado no `uv.lock` — incluindo
+o [just](https://github.com/casey/just), via o pacote `rust-just`. **Não é
+preciso criar a venv antes**: o `uv sync` faz isso por você, e criar uma à mão
+pode acabar apontando para uma versão de Python diferente da que o projeto
+espera.
 
 Tempo esperado: **~2–5 minutos** na primeira vez, quase instantâneo nas
 seguintes. O volume vem das dependências de visão computacional — o ambiente
 final ocupa cerca de **935 MB**, sendo `torch` (~450 MB), o runtime do `polars`
 (~170 MB) e o `opencv` (~110 MB) os três maiores.
 
-Suba o serviço:
+### Ativar a venv (opcional, mas recomendado)
+
+```bash
+# Linux / macOS
+source .venv/bin/activate
+
+# Windows (PowerShell)
+.venv\Scripts\Activate.ps1
+```
+
+Você saberá que funcionou porque o terminal passa a mostrar `(blu-service)` no
+início da linha. Para sair, basta `deactivate`.
+
+### Duas formas de rodar os comandos
+
+Tudo neste README pode ser feito de duas maneiras equivalentes — escolha a que
+preferir:
+
+| | Sem ativar a venv | Com a venv ativada |
+|---|---|---|
+| Subir o serviço | `uv run just serve` | `just serve` |
+| Rodar os testes | `uv run just test` | `just test` |
+| Lint | `uv run just lint` | `just lint` |
+| Ver todas as receitas | `uv run just --list` | `just --list` |
+
+O prefixo `uv run` significa "execute isto dentro do `.venv` do projeto". Se a
+venv já está ativada, o prefixo é dispensável — é exatamente o mesmo comando.
+
+E o `just` é sempre apenas um atalho: cada receita do
+[justfile](justfile) é um comando `uv` por baixo. Por exemplo, `just serve`
+executa:
 
 ```bash
 uv run python -m bentoml serve src.blu_service.service:BluService --port 3000
-# ou, pelo atalho: uv run just serve
 ```
 
-> Os comandos usam `python -m bentoml` em vez do atalho `bentoml`. No Windows,
-> o atalho é um `.exe` não assinado gerado dentro do `.venv`, e políticas de
-> Controle de Aplicativo (Smart App Control / WDAC) podem bloqueá-lo com
-> `os error 4551`. Chamar como módulo Python é equivalente e sempre funciona.
+Ou seja, você nunca depende do `just` — se preferir, pode abrir o `justfile` e
+copiar o comando direto. Os exemplos a seguir mostram as duas formas.
+
+Suba o serviço:
+
+```bash
+# pelo atalho
+uv run just serve
+
+# ou, o comando completo por trás dele
+uv run python -m bentoml serve src.blu_service.service:BluService --port 3000
+```
+
 
 O Swagger fica em `http://localhost:3000` assim que o log mostrar
 `Service blu_service initialized` (leva alguns segundos após o servidor
-subir, enquanto o modelo é carregado). Ele é útil para explorar a API, mas
-não substitui os exemplos de `curl` abaixo — no dia da apresentação, o
-Swagger pode não subir.
+subir, enquanto o modelo é carregado). Ele é útil para explorar a API. 
 
 Rode a primeira predição (usa uma imagem de exemplo do repositório):
 
+```powershell
+# Windows (PowerShell) 
+curl.exe -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_misto.jpeg;type=image/jpeg"
+```
+
 ```bash
-curl -X POST http://localhost:3000/prever_ocupacao \
-  -F "imagem=@samples/exemplo_misto.jpeg;type=image/jpeg"
+# Linux / macOS / Git Bash / WSL
+curl -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_misto.jpeg;type=image/jpeg"
 ```
 
 Tempo esperado por predição: **~0.3–1 s em CPU**.
@@ -163,42 +202,64 @@ rótulos), então as duas respostas são sempre consistentes entre si — não �
 o `result.plot()` bruto da ultralytics, que mostraria "vaga"/"carro" e
 ignoraria o filtro de confiança.
 
+```powershell
+# Windows (PowerShell)
+curl.exe -X POST http://localhost:3000/prever_ocupacao_imagem -F "imagem=@samples/exemplo_misto.jpeg;type=image/jpeg" -o resultado_anotado.jpg
+```
+
 ```bash
-curl -X POST http://localhost:3000/prever_ocupacao_imagem \
-  -F "imagem=@samples/exemplo_misto.jpeg;type=image/jpeg" \
-  -o resultado_anotado.jpg
+# Linux / macOS / Git Bash / WSL
+curl -X POST http://localhost:3000/prever_ocupacao_imagem -F "imagem=@samples/exemplo_misto.jpeg;type=image/jpeg" -o resultado_anotado.jpg
 ```
 
 Abra `resultado_anotado.jpg` para ver o resultado.
 
 ## 4. Três casos de sucesso e um caso de erro
 
-Com o serviço rodando (`uv run python -m bentoml serve ...`), execute (Git Bash,
-WSL ou Linux/macOS):
+Com o serviço rodando, execute os comandos abaixo a partir da raiz do
+repositório.
+
+### Windows (PowerShell)
+
+```powershell
+# Caso 1 — maioria das vagas livres
+curl.exe -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_livre.jpeg;type=image/jpeg"
+
+# Caso 2 — maioria das vagas ocupadas
+curl.exe -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_ocupado.jpeg;type=image/jpeg"
+
+# Caso 3 — vagas livres e ocupadas na mesma imagem
+curl.exe -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_misto.jpeg;type=image/jpeg"
+
+# Caso de erro — arquivo que não é imagem (-i mostra o status HTTP)
+curl.exe -i -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/arquivo_invalido.txt;type=text/plain"
+```
+
+> Use **`curl.exe`**, não `curl`. No PowerShell, `curl` é apelido de
+> `Invoke-WebRequest`, que não entende a flag `-F` e falha.
+
+### Linux / macOS / Git Bash / WSL
 
 ```bash
 # Caso 1 — maioria das vagas livres
-curl -X POST http://localhost:3000/prever_ocupacao \
-  -F "imagem=@samples/exemplo_livre.jpeg;type=image/jpeg"
+curl -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_livre.jpeg;type=image/jpeg"
 
 # Caso 2 — maioria das vagas ocupadas
-curl -X POST http://localhost:3000/prever_ocupacao \
-  -F "imagem=@samples/exemplo_ocupado.jpeg;type=image/jpeg"
+curl -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_ocupado.jpeg;type=image/jpeg"
 
 # Caso 3 — vagas livres e ocupadas na mesma imagem
-curl -X POST http://localhost:3000/prever_ocupacao \
-  -F "imagem=@samples/exemplo_misto.jpeg;type=image/jpeg"
+curl -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_misto.jpeg;type=image/jpeg"
 
-# Caso de erro — arquivo que não é imagem
-curl -i -X POST http://localhost:3000/prever_ocupacao \
-  -F "imagem=@samples/arquivo_invalido.txt;type=text/plain"
+# Caso de erro — arquivo que não é imagem (-i mostra o status HTTP)
+curl -i -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/arquivo_invalido.txt;type=text/plain"
 ```
 
 Os três primeiros devolvem `200` com o JSON descrito acima; o quarto devolve
 `400` com `{"erro": "arquivo_invalido", ...}`. Todos os quatro foram testados
 manualmente contra o serviço real antes desta entrega.
 
-Ou rode tudo de uma vez: `just demo`.
+Ou rode tudo de uma vez: `uv run just demo` (ou `just demo`, com a venv
+ativada).
 
 ## 5. De onde veio o modelo servido
 
@@ -215,28 +276,14 @@ Ou rode tudo de uma vez: `just demo`.
   para detectar dois tipos de objeto a serem cruzados geometricamente. Cada
   detecção é uma vaga com seu estado; o serviço apenas traduz a classe
   predita para o rótulo `estado_vaga` do Charter (`src/blu_service/logic.py`).
-- Pesos servidos: `best.pt`, na raiz do repositório, treinado em
-  02/06/2026 (metadado do checkpoint).
 - Os datasets de treino/validação (`train-maquete/`, `valid-maquete/`) não
   são versionados (ver `.gitignore`) por tamanho; ficam disponíveis
   localmente após o clone original ou sob pedido à equipe.
 
-## 6. Uso de IA
 
-Este repositório — código do serviço (`src/blu_service/`), testes, arquivos
-de configuração (`pyproject.toml`, `bentofile.yaml`, `justfile`, CI) e este
-README — foi produzido com apoio de assistentes de IA (Claude, via Claude
-Code), a partir do modelo `best.pt` e dos datasets já existentes, fornecidos
-pela equipe. A equipe revisou e validou manualmente: a semântica das classes
-do modelo (`vaga`→LIVRE, `carro`→OCUPADA), o contrato da API, e os testes
-end-to-end descritos na seção 4, todos rodados contra o serviço real antes
-desta entrega. O modelo em si (`best.pt`) **não** foi gerado por IA generativa
-de texto — é um checkpoint de visão computacional treinado pela equipe com
-ultralytics/YOLO sobre dados próprios.
+## 5.1. Problema conhecido no Windows: Smart App Control
 
-## 6.1. Problema conhecido no Windows: Smart App Control
-
-Se ao rodar `just serve` aparecer:
+Se ao subir o serviço aparecer:
 
 ```
 DLL load failed while importing _C: Uma política de Controle de Aplicativo
@@ -264,23 +311,8 @@ mesmo jeito. Há dois caminhos:
    e navegador → Smart App Control → Desativado) e reiniciar. ⚠️ É
    irreversível: só dá para religar reinstalando o Windows.
 
-## 7. Limitações conhecidas
 
-- **Dataset de maquete, não de via pública real.** O modelo nunca viu uma
-  vaga de rua de verdade; a generalização para o ambiente real (iluminação,
-  ângulo de câmera, oclusão) não foi validada.
-- **Vazamento entre treino e validação.** `valid-maquete/` contém as mesmas
-  imagens e rótulos de `train-maquete/`. As métricas de detecção registradas
-  no checkpoint (precisão, recall, mAP50, mAP50-95) estão infladas por esse
-  vazamento e não devem ser lidas como desempenho real. A equipe optou por
-  não retreinar nesta entrega; refazer o split é o próximo passo natural.
-- **Nenhum limiar de aceite para produção foi acordado** com o órgão gestor
-  (pendência já registrada no Project Charter).
-- **LGPD e retenção de imagens em via pública** seguem pendentes de definição
-  com o órgão gestor — este serviço processa apenas imagens estáticas
-  fornecidas via upload, sem captura, retenção ou identificação de pessoas.
-
-## 8. Licença
+## 6. Licença
 
 Este projeto é distribuído sob a **GNU Affero General Public License v3.0**
 (ver [LICENSE](LICENSE)). A escolha não é arbitrária: `best.pt` deriva dos
@@ -307,11 +339,12 @@ requirements.txt  - instala só o uv via pip (não as dependências do serviço)
 
 ## Diferenciais implementados
 
-- **Container Docker**: `just docker` empacota o Bento e gera a imagem via
-  `python -m bentoml build` + `python -m bentoml containerize ... --image-tag
-  blu_service:latest` (o `--image-tag` fixa o nome da imagem; sem ele, cada
-  build gera uma tag com hash aleatório). Depois, `just docker-run` (ou
-  `docker run --rm -p 3000:3000 blu_service:latest`) sobe o container.
+- **Container Docker**: `uv run just docker` empacota o Bento e gera a imagem
+  via `python -m bentoml build` + `python -m bentoml containerize ...
+  --image-tag blu_service:latest` (o `--image-tag` fixa o nome da imagem; sem
+  ele, cada build gera uma tag com hash aleatório). Depois,
+  `uv run just docker-run` (ou `docker run --rm -p 3000:3000
+  blu_service:latest`) sobe o container.
   O `bentofile.yaml` instala as bibliotecas de sistema que o OpenCV (puxado
   pela ultralytics) exige em imagem slim — sem elas o container falha com
   `libxcb.so.1: cannot open shared object file` — e aponta o `torch` para o
