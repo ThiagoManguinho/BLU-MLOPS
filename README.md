@@ -154,7 +154,9 @@ BentoML expõe APIs de serviço como `POST`; não há rota `GET` neste estilo de
 serviço.
 
 **Entrada:** `multipart/form-data` com um campo `imagem` contendo o arquivo
-de imagem (jpeg/png).
+de imagem (jpeg/png). No serviço, o parâmetro é tipado como imagem PIL
+(`PIL.Image.Image`): o BentoML recebe o upload e entrega ao endpoint a imagem
+já aberta, sem passar por caminho de arquivo.
 
 **Saída (200):**
 
@@ -185,11 +187,31 @@ de imagem (jpeg/png).
   confiança (`BLU_CONF_THRESHOLD`, padrão `0.25`), que **não** entram na
   contagem — alinhado à decisão de não estimar estado sob confiança baixa.
 
-**Saída (400) — imagem inválida:**
+**Saída (400) — arquivo que não é imagem:** o BentoML recusa o upload ao
+tentar abri-lo como imagem e responde com o seu formato padrão de erro de
+validação:
 
 ```json
-{"erro": "arquivo_invalido", "detalhe": "cannot identify image file '...'"}
+{
+  "error": "1 validation error for Input",
+  "detail": [
+    {
+      "type": "value_error",
+      "loc": ["imagem"],
+      "msg": "Value error, arquivo_invalido: o arquivo enviado não é uma imagem válida (jpeg/png)"
+    }
+  ]
+}
 ```
+
+**Saída (400) — imagem corrompida** (por exemplo, um JPEG truncado, que abre
+mas não decodifica):
+
+```json
+{"erro": "arquivo_invalido", "detalhe": "image file is truncated (5 bytes not processed)"}
+```
+
+**Saída (503) — modelo indisponível:** `{"erro": "modelo_indisponivel", ...}`.
 
 ### `POST /prever_ocupacao_imagem`
 
@@ -255,8 +277,8 @@ curl -i -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/arquiv
 ```
 
 Os três primeiros devolvem `200` com o JSON descrito acima; o quarto devolve
-`400` com `{"erro": "arquivo_invalido", ...}`. Todos os quatro foram testados
-manualmente contra o serviço real antes desta entrega.
+`400` com o erro de validação `arquivo_invalido` (ver seção 3). Todos os
+quatro foram testados manualmente contra o serviço real antes desta entrega.
 
 Ou rode tudo de uma vez: `uv run just demo` (ou `just demo`, com a venv
 ativada).
