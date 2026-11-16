@@ -14,6 +14,10 @@ __pycache__/
 bentoml_build/
 *.bento
 
+# Monitoramento: log gerado pelo serviço e saídas da análise
+logs/
+analise/
+
 # Segredos locais
 .env
 

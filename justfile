@@ -6,6 +6,11 @@
 # própria, porque usa sintaxe de shell (`&`, `kill %1`) que só bash entende.
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
+# Saída dos scripts em UTF-8 também no Windows (acentos no terminal).
+export PYTHONUTF8 := "1"
+
+# Cada pedido de inferência vira uma linha em logs/inferencias.jsonl.
+#
 # Sobe o serviço BentoML (Swagger em http://localhost:3000).
 serve:
     uv run python -m bentoml serve src.blu_service.service:BluService --port 3000
@@ -44,3 +49,39 @@ docker:
 # Roda o container gerado por `just docker`.
 docker-run:
     docker run --rm -p 3000:3000 blu_service:latest
+
+# --- Monitoramento ---------------------------------------------------------
+
+# Exemplos (com o `just serve` rodando):
+#   just carga                         100 pedidos com as imagens de samples/
+#   just carga --n 300 --degradar      30% das imagens borradas/escuras/estouradas
+#
+# Gera carga no serviço para ver o log e as métricas evoluírem.
+carga *args:
+    uv run python scripts/gerar_carga.py {{args}}
+
+# Requer a imagem gerada por `just docker` (rode de novo se o código mudar).
+#
+# Sobe tudo em contêiner: serviço (3000), Prometheus (9090) e Grafana (3001).
+up:
+    docker compose up -d
+
+# Sobe só Prometheus e Grafana, para o serviço rodando na máquina (`just serve`).
+monitor-up:
+    docker compose up -d prometheus grafana
+
+# Derruba os contêineres (o histórico do Prometheus fica no volume).
+down:
+    docker compose down
+
+# Tira uma foto do /metrics e monta docs/analise_metrics.xlsx.
+planilha:
+    uv run python scripts/exportar_metrics.py
+
+# Compara o log com a referência: KS, PSI, histogramas e boxplots em analise/.
+analisar:
+    uv run python scripts/analisar_log.py
+
+# Refaz o conjunto de referência (precisa de train-maquete/, que não é versionado).
+referencia *args:
+    uv run python scripts/gerar_referencia.py {{args}}

@@ -1,0 +1,73 @@
+# Serviço BLU + Prometheus + Grafana em contêineres.
+#
+#   - blu (http://localhost:3000): o serviço BentoML, na imagem gerada por
+#     `just docker` (bentoml build + containerize). O log em arquivo é gravado
+#     em ./logs/inferencias.jsonl, na pasta do repositório;
+#   - Prometheus (http://localhost:9090): coleta /metrics a cada 5 s e guarda o
+#     histórico por 15 dias (--storage.tsdb.retention.time);
+#   - Grafana (http://localhost:3001): painel "BLU - Monitoramento" já
+#     provisionado, sem login para ver (admin/admin para editar).
+#
+# Tudo em contêiner:   just docker   (uma vez, e de novo se o código mudar)
+#                      just up       (= docker compose up -d)
+# Serviço na máquina:  just serve  +  just monitor-up  (só Prometheus e Grafana)
+
+services:
+  blu:
+    image: blu_service:latest
+    # A imagem é local (gerada por `just docker`); sem isto, o compose tentaria
+    # baixá-la do Docker Hub e falharia com uma mensagem confusa.
+    pull_policy: never
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      BLU_LOG_PATH: /logs/inferencias.jsonl
+    volumes:
+      - ./logs:/logs
+    # O usuário padrão da imagem (bentoml, uid 1034) não tem permissão de
+    # escrita na pasta ./logs montada do host no Linux. Como root, o log
+    # aparece em ./logs em qualquer sistema e pode ser lido e analisado da
+    # máquina (just analisar). Aceitável para a demonstração local.
+    user: root
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoramento/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-dados:/prometheus
+    # O Prometheus coleta host.docker.internal:3000 (a porta 3000 da máquina),
+    # que funciona com o serviço em contêiner ou fora dele. Esse nome já existe
+    # no Docker Desktop (Windows/macOS); no Linux, esta linha o cria.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    ports:
+      - "3001:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/blu.json
+    volumes:
+      - ./monitoramento/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoramento/grafana/dashboards:/etc/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus-dados:

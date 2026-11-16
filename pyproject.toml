@@ -10,6 +10,7 @@ dependencies = [
     "torch>=2.2,<3",
     "pillow>=10.0",
     "numpy>=1.26",
+    "prometheus-client>=0.20",
 ]
 
 [dependency-groups]
@@ -20,6 +21,10 @@ dev = [
     # como wheel Python, então `uv sync` já deixa os atalhos do justfile
     # prontos — não é preciso instalar o just à parte.
     "rust-just>=1.58,<2",
+    "scipy>=1.11",
+    "pandas>=2.1",
+    "openpyxl>=3.1",
+    "matplotlib>=3.8",
 ]
 
 [tool.uv]
