@@ -4,6 +4,118 @@ Vertente MLOps do projeto BLU: uma API que recebe uma imagem de estacionamento
 e devolve o estado de cada vaga (LIVRE ou OCUPADA), servida com BentoML sobre
 um modelo YOLOv8-OBB treinado pela equipe.
 
+## Visão geral: arquitetura e fluxo
+
+```mermaid
+flowchart LR
+    subgraph entrada["1. Quem envia imagens"]
+        direction TB
+        cliente["curl / Swagger<br/>(seções 3 e 4)"]
+        carga["just carga<br/>pedidos de teste"]
+    end
+
+    subgraph servico["2. Serviço BentoML: contêiner blu, porta 3000"]
+        direction TB
+        middleware["MiddlewareRegistro<br/>request_id + latência"]
+        endpoints["Endpoints de inferência<br/>prever_ocupacao<br/>prever_ocupacao_imagem"]
+        modelo["Modelo YOLOv8n-OBB<br/>best.pt"]
+        metrics["GET /metrics<br/>bentoml_* e blu_*"]
+        middleware --> endpoints
+        endpoints --> modelo
+        endpoints -->|métricas blu_*| metrics
+    end
+
+    subgraph monitor["3. Monitoramento e alertas: contêineres"]
+        direction TB
+        prometheus["Prometheus, porta 9090<br/>coleta a cada 5 s, guarda 15 dias<br/>avalia as regras de alerta"]
+        grafana["Grafana, porta 3001<br/>painel BLU"]
+        alertmanager["Alertmanager, porta 9093<br/>agrupa e envia"]
+        mailpit["E-mail<br/>Mailpit, porta 8025, ou SMTP real"]
+        prometheus -->|consultado pelo| grafana
+        prometheus -->|alerta de câmera| alertmanager
+        alertmanager -->|e-mail| mailpit
+    end
+
+    subgraph arquivos["4. Arquivos e análise: sua máquina"]
+        direction TB
+        ref[("referencia/<br/>245 fotos de treino")]
+        log[("logs/inferencias.jsonl<br/>1 linha por pedido")]
+        analisar["just analisar<br/>KS, PSI, histogramas, boxplots"]
+        planilha["just planilha<br/>docs/analise_metrics.xlsx"]
+        ref --> analisar
+        log --> analisar
+    end
+
+    cliente -->|POST com a imagem| middleware
+    carga -->|POST com a imagem| middleware
+    middleware -->|grava a linha do pedido| log
+    metrics -->|lido a cada 5 s| prometheus
+    metrics -->|foto do momento| planilha
+```
+
+### O caminho de um pedido
+
+1. O cliente (curl, Swagger ou `just carga`) envia a foto em `POST
+   /prever_ocupacao` ou `/prever_ocupacao_imagem` (`multipart/form-data`,
+   campo `imagem`) para a porta 3000.
+2. O **`MiddlewareRegistro`** (`src/blu_service/monitoramento.py`) recebe o
+   pedido primeiro: cria um `request_id` e começa a medir o tempo.
+3. O **BentoML** abre o arquivo como imagem PIL. Se não for imagem, responde
+   **400** ali mesmo; o pedido ainda assim vai para o log (passo 7).
+4. O **endpoint** (`src/blu_service/service.py`) faz a análise:
+   - mede a imagem: luminância, contraste, nitidez e histograma;
+   - roda o **modelo** (`model.py`): caixas `vaga` e `carro`;
+   - aplica a **regra de negócio** (`logic.py`): `vaga` vira LIVRE e `carro`
+     vira OCUPADA, com contagem e taxa de ocupação;
+   - resume a saída (vagas, confiança) e marca a imagem como suspeita se
+     estiver borrada, escura, estourada ou sem as 7 vagas;
+   - atualiza as métricas `blu_*` do `/metrics`.
+5. A **resposta** volta ao cliente: JSON ou imagem anotada (`render.py`), com o
+   cabeçalho `X-Request-ID`.
+6. O **BentoML** atualiza as próprias métricas no `/metrics`: contagem por
+   código HTTP e histograma de latência.
+7. O **middleware** grava **uma linha** em `logs/inferencias.jsonl` com tudo o
+   que entrou e saiu, o status e a latência total.
+8. A cada 5 s, o **Prometheus** lê o `/metrics` e guarda o histórico. O
+   **Grafana** consulta o Prometheus e atualiza o painel.
+9. O **Prometheus** também avalia as regras de alerta
+   (`monitoramento/alertas.yml`). Se mais de 30% das imagens dos últimos 5
+   minutos estiverem borradas, escuras ou estouradas, o que indica um provável
+   problema na câmera, ele avisa o **Alertmanager**, que manda um **e-mail**
+   para a equipe.
+
+Depois, fora do caminho do pedido:
+- `just analisar` compara o log com a referência (fotos de treino) por KS e
+  PSI;
+- `just planilha` transforma uma foto do `/metrics` em histograma, boxplot e
+  taxa de erros.
+
+### Onde cada informação fica
+
+| Onde | O que guarda | Para que serve | Por quanto tempo |
+|---|---|---|---|
+| `logs/inferencias.jsonl` | cada pedido, com o que entrou e saiu | investigar um pedido; histogramas, boxplots, KS/PSI | até 6 arquivos de 10 MB |
+| `GET /metrics` | totais desde que o serviço subiu | foto do momento; planilha | até o serviço reiniciar |
+| Prometheus | o `/metrics` a cada 5 s | evolução no tempo, taxas por minuto | 15 dias |
+| Grafana | nada (consulta o Prometheus) | painel ao vivo | — |
+| Alertmanager | alertas ativos e silêncios | avisar a equipe por e-mail | enquanto o contêiner existir |
+| Mailpit | e-mails de alerta (caixa local) | ver os e-mails sem conta de e-mail | até o contêiner ser recriado |
+
+### Dois modos de rodar
+
+| | Tudo em contêiner (recomendado) | Serviço na máquina |
+|---|---|---|
+| Subir | `just docker` (1ª vez) + `just up` | `just serve` + `just monitor-up` |
+| Serviço | contêiner `blu`, porta 3000 | processo local, porta 3000 |
+| Prometheus, Grafana, Alertmanager, Mailpit | contêineres, portas 9090, 3001, 9093 e 8025 | contêineres, portas 9090, 3001, 9093 e 8025 |
+| Log | `./logs/inferencias.jsonl` (pasta montada) | `./logs/inferencias.jsonl` |
+| Parar | `just down` | Ctrl+C no `serve` + `just down` |
+
+Os dois usam a porta 3000, então não rode os dois ao mesmo tempo. O passo a
+passo completo do monitoramento está na [seção 6](#6-monitoramento-log-em-arquivo-metrics-prometheus-e-grafana),
+os alertas por e-mail na [seção 6.6](#66-alertas-por-e-mail-problema-na-câmera),
+e a lista de arquivos, em [Estrutura do repositório](#estrutura-do-repositório).
+
 ## 1. O que este serviço apoia
 
 O Project Charter do BLU (Entendimento do Negócio, fase de Otimização)
@@ -347,6 +459,8 @@ O serviço registra o que recebe e o que devolve de três formas:
   planilha [`docs/analise_metrics.xlsx`](docs/analise_metrics.xlsx).
 - **Prometheus + Grafana:** guardam o histórico do `/metrics` e mostram um
   painel ao vivo.
+- **Alertmanager:** manda um e-mail quando a qualidade das imagens indica
+  problema na câmera (seção 6.6).
 
 ### 6.1. Passo a passo: gerar carga e ver o rastro evoluir
 
@@ -392,6 +506,7 @@ Opções úteis:
 | `--intervalo` | segundos entre pedidos |
 | `--fracao-erro` | fração de arquivos inválidos |
 | `--degradar 0.5` | fração de imagens degradadas |
+| `--tipo borrada` | só um tipo de degradação (`borrada`, `escura` ou `estourada`), para simular um defeito específico da câmera e disparar o alerta (seção 6.6) |
 | `--pasta DIR` | outra pasta de imagens |
 
 Enquanto a carga roda:
@@ -402,6 +517,8 @@ Enquanto a carga roda:
 | http://localhost:3000/metrics | os contadores `bentoml_*` e `blu_*` subindo |
 | http://localhost:3001 | painel **BLU - Monitoramento** no Grafana (sem login; admin/admin para editar) |
 | http://localhost:9090/targets | o Prometheus coletando o serviço (`host.docker.internal:3000`, estado `UP`) |
+| http://localhost:9090/alerts | as regras de alerta de câmera e se alguma está disparando (seção 6.6) |
+| http://localhost:8025 | a caixa de e-mail local (Mailpit), onde chegam os e-mails de alerta |
 
 Depois da carga:
 
@@ -596,27 +713,101 @@ com fórmulas, a partir de uma foto real do `/metrics`.
 
 Painéis do Grafana (`monitoramento/grafana/dashboards/blu.json`, carregado
 automaticamente):
-- pedidos nos últimos 5 min, taxa de erros, latência p95 e ocupação atual;
-- pedidos por segundo por endpoint e status;
-- taxa de erros por endpoint;
-- latência p50/p95/p99 e o histograma da latência no tempo;
-- nitidez e luminância, com a faixa proibida em vermelho;
-- imagens suspeitas por motivo;
-- vagas detectadas e confiança.
+| Painel | Tipo de gráfico | Por que este tipo |
+|---|---|---|
+| Pedidos (5 min), taxa de erros, latência p95, ocupação atual | cartões com o número | leitura de relance do estado atual; a cor muda nos limites (ex.: erros acima de 5%) |
+| Pedidos por segundo, por endpoint e status | linhas | volume ao longo do tempo, com uma série por combinação |
+| Taxa de erros por endpoint | linhas, em % | compara os endpoints na mesma escala |
+| Latência p50 / p95 / p99 | linhas | mostra o típico (p50) e a cauda (p95/p99). Só respostas 200: os erros 400 respondem em milissegundos e puxariam os quantis para baixo |
+| Histograma da latência no tempo | heatmap | a distribuição inteira minuto a minuto, que os quantis resumem |
+| Nitidez e luminância | linhas (mediana e p10) com a faixa proibida em vermelho | o p10 mostra a parte pior das imagens chegando à faixa de problema antes da mediana |
+| Imagens com problema de qualidade | linhas, em % das imagens dos últimos 5 min, com a linha de 30% | é exatamente o que o alerta avalia (seção 6.6); cada motivo é uma linha independente |
+| Imagens suspeitas por minuto | barras **empilhadas** de 1 minuto | o total do minuto e a parte de cada motivo, sem um motivo cobrir o outro |
+| Vagas detectadas por imagem | linha (média) com referência tracejada em 7 | queda sustentada abaixo de 7 indica câmera deslocada ou vaga encoberta |
+| Confiança média das detecções | linhas por estado (LIVRE / OCUPADA) | queda de confiança costuma vir antes do erro |
 
-O `docker-compose.yml` sobe três contêineres:
+O `docker-compose.yml` sobe cinco contêineres:
 - **`blu`:** o serviço, na imagem gerada por `just docker`. O log é gravado em
   `./logs` por um volume montado.
 - **`prometheus`:** coleta o `/metrics` em `host.docker.internal:3000`, a
   porta 3000 da máquina. É o contêiner `blu` publicado ali, ou o `just serve`
   no modo sem contêiner. Um alvo só para os dois modos evita contar o mesmo
-  serviço duas vezes.
+  serviço duas vezes. Também avalia as regras de alerta (seção 6.6).
 - **`grafana`:** o painel.
+- **`alertmanager`** e **`mailpit`:** os alertas por e-mail (seção 6.6).
 
 O contêiner do serviço roda como root. O usuário padrão da imagem do BentoML
 (`bentoml`, uid 1034) não teria permissão de escrita na pasta `./logs`
 montada do host no Linux. Funciona no Docker Desktop (Windows/macOS) e no
 Linux.
+
+### 6.6. Alertas por e-mail: problema na câmera
+
+Os painéis do Grafana só ajudam se alguém estiver olhando. Para o caso que
+mais ameaça o serviço, uma **câmera com defeito** que passa a mandar imagens
+ruins, o Prometheus avalia regras de alerta e o **Alertmanager** manda um
+e-mail à equipe.
+
+```
+serviço (/metrics) → Prometheus (regras, a cada 5 s) → Alertmanager (agrupa, evita repetir) → e-mail
+```
+
+**As regras** (`monitoramento/alertas.yml`):
+
+| Alerta | Dispara quando, nos últimos 5 min | Provável causa |
+|---|---|---|
+| `CameraImagemBorrada` | mais de 30% das imagens com nitidez < 15 | foco, lente suja, câmera tremendo |
+| `CameraImagemEscura` | mais de 30% das imagens com luminância média < 100 | pouca luz, algo cobrindo a câmera |
+| `CameraImagemEstourada` | mais de 30% das imagens com mais de 1% dos pixels estourados | reflexo, sol direto na lente |
+
+Os limites por imagem são os da seção 6.3, tirados das fotos de treino. Cada
+regra tem três salvaguardas para não alertar à toa:
+- olha **uma fração** das imagens, não uma foto isolada (alguém passando a mão
+  na frente não dispara alerta);
+- exige **pelo menos 5 imagens** nos 5 minutos;
+- a situação precisa **durar 1 minuto** (`for: 1m`) antes de virar alerta.
+
+A regra "vagas detectadas diferente de 7" (câmera deslocada) ficou de fora de
+propósito. Com as fotos de `samples/`, de celular e de perto, ela dispararia o
+tempo todo. Vale ativá-la quando a referência for refeita com fotos da câmera
+fixa.
+
+**O e-mail:** por padrão vai para o **Mailpit**, uma caixa de e-mail local do
+próprio `docker-compose`, em http://localhost:8025. Não precisa de conta nem
+de senha. O assunto é `[BLU] ALERTA: ...` quando o problema começa e
+`[BLU] Resolvido: ...` quando as imagens voltam ao normal. O corpo traz o
+percentual de imagens afetadas, a provável causa, o horário e links para o
+Grafana e o Alertmanager.
+
+**Testar** (com `just up` rodando):
+
+```bash
+# simula lente suja: 80% das imagens borradas
+uv run just carga --n 70 --intervalo 0.3 --degradar 0.8 --tipo borrada --fracao-erro 0
+```
+
+| Tempo | O que acontece | Onde ver |
+|---|---|---|
+| durante a carga | o alerta fica `pending` | http://localhost:9090/alerts |
+| ~1 min depois | o alerta vira `firing` | http://localhost:9090/alerts e http://localhost:9093 |
+| ~30 s depois | chega o e-mail `[BLU] ALERTA: Imagens borradas...` | http://localhost:8025 |
+| após imagens normais | chega o e-mail `[BLU] Resolvido: ...` (até ~5 min depois) | http://localhost:8025 |
+
+Para gerar as imagens normais, rode `uv run just carga --n 160 --intervalo
+0.05 --fracao-erro 0`. Com `--tipo escura` ou `--tipo estourada` testam-se os
+outros dois alertas.
+
+**Mandar para um e-mail de verdade:**
+1. Copie `.env.alertas.example` para `.env.alertas`. Esse arquivo não vai para
+   o git.
+2. Preencha servidor, usuário, senha e destinatário. No Gmail, use uma
+   "senha de app", não a senha normal.
+3. Rode `uv run just up` de novo.
+
+O `monitoramento/alertmanager/iniciar.sh` monta a configuração do
+Alertmanager com esses valores quando o contêiner sobe. As credenciais ficam
+num arquivo separado do `.env` para a senha do e-mail não chegar ao contêiner
+do serviço.
 
 
 ## 7. Licença
@@ -645,9 +836,15 @@ scripts/
   analisar_log.py     - log × referência: KS, PSI, histogramas e boxplots (just analisar)
   exportar_metrics.py - foto do /metrics em planilha com fórmulas (just planilha)
 referencia/       - conjunto de referência (245 fotos de treino) e resumo com percentis
-monitoramento/    - configuração do Prometheus e do Grafana (fonte de dados e painel)
+monitoramento/
+  prometheus.yml  - coleta do /metrics e ligação com o Alertmanager
+  alertas.yml     - regras de alerta de qualidade da imagem (câmera)
+  alertmanager/   - configuração do Alertmanager e modelo do e-mail de alerta
+  grafana/        - fonte de dados e painel do Grafana (provisionados)
 docs/             - metrics.md (como ler o /metrics), planilha e screenshot do Grafana
-docker-compose.yml - sobe o serviço (3000), Prometheus (9090) e Grafana (3001)
+docker-compose.yml - sobe o serviço (3000), Prometheus (9090), Grafana (3001),
+                     Alertmanager (9093) e Mailpit (8025)
+.env.alertas.example - modelo para mandar os alertas a um e-mail de verdade
 samples/          - 3 imagens de exemplo + 1 arquivo inválido, para os testes da seção 4
 best.pt           - pesos do modelo (versionado; ver seção 5)
 bentofile.yaml    - manifesto de build/containerização do BentoML
@@ -679,6 +876,7 @@ requirements.txt  - instala só o uv via pip (não as dependências do serviço)
 - O health check padrão `healthz` do BentoML verifica a disponibilidade do serviço.
 - **Monitoramento além do pedido** (seção 6):
   - Prometheus e Grafana com painel pronto;
+  - alertas por e-mail (Alertmanager) quando as imagens indicam problema na câmera;
   - métrica de nitidez para detectar câmera fora de foco ou lente suja;
   - métricas próprias `blu_*` no `/metrics`;
   - `X-Request-ID` em cada resposta, que liga o pedido à sua linha no log;

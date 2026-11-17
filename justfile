@@ -62,13 +62,13 @@ carga *args:
 
 # Requer a imagem gerada por `just docker` (rode de novo se o código mudar).
 #
-# Sobe tudo em contêiner: serviço (3000), Prometheus (9090) e Grafana (3001).
+# Sobe tudo em contêiner: serviço, Prometheus, Grafana, Alertmanager e Mailpit.
 up:
     docker compose up -d
 
-# Sobe só Prometheus e Grafana, para o serviço rodando na máquina (`just serve`).
+# Sobe o monitoramento e os alertas, para o serviço rodando na máquina (`just serve`).
 monitor-up:
-    docker compose up -d prometheus grafana
+    docker compose up -d prometheus grafana alertmanager mailpit
 
 # Derruba os contêineres (o histórico do Prometheus fica no volume).
 down:

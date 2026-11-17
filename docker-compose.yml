@@ -1,16 +1,21 @@
-# Serviço BLU + Prometheus + Grafana em contêineres.
+# Serviço BLU + monitoramento + alertas em contêineres.
 #
 #   - blu (http://localhost:3000): o serviço BentoML, na imagem gerada por
 #     `just docker` (bentoml build + containerize). O log em arquivo é gravado
 #     em ./logs/inferencias.jsonl, na pasta do repositório;
-#   - Prometheus (http://localhost:9090): coleta /metrics a cada 5 s e guarda o
-#     histórico por 15 dias (--storage.tsdb.retention.time);
+#   - Prometheus (http://localhost:9090): coleta /metrics a cada 5 s, guarda o
+#     histórico por 15 dias (--storage.tsdb.retention.time) e avalia as regras
+#     de alerta de qualidade da imagem (monitoramento/alertas.yml);
 #   - Grafana (http://localhost:3001): painel "BLU - Monitoramento" já
-#     provisionado, sem login para ver (admin/admin para editar).
+#     provisionado, sem login para ver (admin/admin para editar);
+#   - Alertmanager (http://localhost:9093): recebe os alertas do Prometheus e
+#     manda o e-mail;
+#   - Mailpit (http://localhost:8025): caixa de e-mail local que recebe os
+#     e-mails de alerta quando o .env.alertas não aponta para um e-mail real.
 #
 # Tudo em contêiner:   just docker   (uma vez, e de novo se o código mudar)
 #                      just up       (= docker compose up -d)
-# Serviço na máquina:  just serve  +  just monitor-up  (só Prometheus e Grafana)
+# Serviço na máquina:  just serve  +  just monitor-up  (todo o resto)
 
 services:
   blu:
@@ -44,6 +49,7 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoramento/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoramento/alertas.yml:/etc/prometheus/alertas.yml:ro
       - prometheus-dados:/prometheus
     # O Prometheus coleta host.docker.internal:3000 (a porta 3000 da máquina),
     # que funciona com o serviço em contêiner ou fora dele. Esse nome já existe
@@ -67,6 +73,28 @@ services:
       - ./monitoramento/grafana/dashboards:/etc/grafana/dashboards:ro
     depends_on:
       - prometheus
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    # iniciar.sh monta a configuração a partir das variáveis de ambiente
+    # (servidor SMTP, remetente, destinatário) e inicia o Alertmanager.
+    entrypoint: ["/bin/sh", "/etc/alertmanager/iniciar.sh"]
+    ports:
+      - "9093:9093"
+    # Dados do e-mail real (opcional; modelo em .env.alertas.example). Fica num
+    # arquivo separado do .env para a senha do e-mail não chegar ao serviço.
+    env_file:
+      - path: .env.alertas
+        required: false
+    volumes:
+      - ./monitoramento/alertmanager:/etc/alertmanager:ro
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:v1.20.0
+    ports:
+      - "8025:8025"
     restart: unless-stopped
 
 volumes:

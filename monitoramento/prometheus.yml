@@ -8,6 +8,15 @@ global:
   scrape_interval: 5s
   evaluation_interval: 5s
 
+# Regras de alerta (qualidade da imagem) e para onde mandar os alertas.
+rule_files:
+  - /etc/prometheus/alertas.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
 scrape_configs:
   - job_name: blu_service
     metrics_path: /metrics

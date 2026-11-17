@@ -2,7 +2,10 @@ apiVersion: 1
 
 providers:
   - name: blu
-    folder: BLU
+    # Na raiz (pasta "General"), que por padrão pode ser vista por qualquer
+    # usuário. Numa pasta provisionada própria, o Grafana 11 às vezes cria a
+    # pasta sem permissões, e o acesso anônimo (sem login) recebe 403.
+    folder: ""
     type: file
     disableDeletion: true
     options:

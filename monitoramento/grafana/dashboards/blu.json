@@ -8,7 +8,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "refresh": "5s",
   "graphTooltip": 1,
@@ -149,7 +149,7 @@
       "id": 4,
       "type": "stat",
       "title": "Latência p95 (5 min)",
-      "description": "95% dos pedidos responderam em até este tempo (estimado pelas faixas do histograma).",
+      "description": "95% das inferências (respostas 200) terminaram em até este tempo (estimado pelas faixas do histograma).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-blu"
@@ -166,7 +166,7 @@
             "type": "prometheus",
             "uid": "prometheus-blu"
           },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(bentoml_service_request_duration_seconds_bucket{endpoint=~\"/prever_ocupacao.*\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(bentoml_service_request_duration_seconds_bucket{endpoint=~\"/prever_ocupacao.*\",http_response_code=\"200\"}[5m])))",
           "legendFormat": "",
           "refId": "A"
         }
@@ -360,7 +360,7 @@
       "id": 8,
       "type": "timeseries",
       "title": "Latência p50 / p95 / p99",
-      "description": "Quantis estimados pelas faixas do histograma (histogram_quantile).",
+      "description": "Latência das inferências (respostas 200), em quantis estimados pelas faixas do histograma (histogram_quantile). Os erros 400 ficam de fora: respondem em milissegundos e puxariam os quantis para baixo.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-blu"
@@ -377,7 +377,7 @@
             "type": "prometheus",
             "uid": "prometheus-blu"
           },
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(bentoml_service_request_duration_seconds_bucket{endpoint=~\"/prever_ocupacao.*\"}[1m])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(bentoml_service_request_duration_seconds_bucket{endpoint=~\"/prever_ocupacao.*\",http_response_code=\"200\"}[1m])))",
           "legendFormat": "p50",
           "refId": "A"
         },
@@ -386,7 +386,7 @@
             "type": "prometheus",
             "uid": "prometheus-blu"
           },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(bentoml_service_request_duration_seconds_bucket{endpoint=~\"/prever_ocupacao.*\"}[1m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(bentoml_service_request_duration_seconds_bucket{endpoint=~\"/prever_ocupacao.*\",http_response_code=\"200\"}[1m])))",
           "legendFormat": "p95",
           "refId": "B"
         },
@@ -395,7 +395,7 @@
             "type": "prometheus",
             "uid": "prometheus-blu"
           },
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(bentoml_service_request_duration_seconds_bucket{endpoint=~\"/prever_ocupacao.*\"}[1m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(bentoml_service_request_duration_seconds_bucket{endpoint=~\"/prever_ocupacao.*\",http_response_code=\"200\"}[1m])))",
           "legendFormat": "p99",
           "refId": "C"
         }
@@ -426,7 +426,7 @@
       "id": 9,
       "type": "heatmap",
       "title": "Histograma da latência ao longo do tempo",
-      "description": "Cada coluna é um minuto; a cor é a quantidade de pedidos em cada faixa de latência.",
+      "description": "Inferências (respostas 200). Cada coluna é um minuto; a cor é a quantidade de pedidos em cada faixa de latência.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-blu"
@@ -443,7 +443,7 @@
             "type": "prometheus",
             "uid": "prometheus-blu"
           },
-          "expr": "sum by (le) (increase(bentoml_service_request_duration_seconds_bucket{endpoint=~\"/prever_ocupacao.*\"}[1m]))",
+          "expr": "sum by (le) (increase(bentoml_service_request_duration_seconds_bucket{endpoint=~\"/prever_ocupacao.*\",http_response_code=\"200\"}[1m]))",
           "legendFormat": "{{le}}",
           "refId": "A",
           "format": "heatmap"
@@ -642,8 +642,8 @@
     {
       "id": 13,
       "type": "timeseries",
-      "title": "Imagens suspeitas por motivo (por minuto)",
-      "description": "borrada / escura / estourada: fora da faixa das fotos de treino. vagas_divergentes: o modelo não achou as 7 vagas da maquete.",
+      "title": "Imagens com problema de qualidade (% nos últimos 5 min)",
+      "description": "Fração das imagens dos últimos 5 minutos fora da faixa das fotos de treino, por motivo. É o que as regras de alerta avaliam: acima da linha vermelha (30%) por 1 minuto, sai o e-mail de problema na câmera.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-blu"
@@ -660,7 +660,121 @@
             "type": "prometheus",
             "uid": "prometheus-blu"
           },
-          "expr": "sum by (motivo) (increase(blu_imagens_suspeitas_total[1m]))",
+          "expr": "sum by (motivo) (increase(blu_imagens_suspeitas_total{motivo=~\"borrada|escura|estourada\"}[5m])) / on() group_left sum(increase(blu_imagem_nitidez_count[5m]))",
+          "legendFormat": "{{motivo}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.3
+              }
+            ]
+          },
+          "custom": {
+            "lineWidth": 2,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "borrada"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "escura"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "estourada"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Imagens suspeitas por minuto (empilhado por motivo)",
+      "description": "Quantas imagens suspeitas chegaram em cada minuto. As barras são empilhadas: a altura total é o total do minuto e cada cor é a parte de um motivo, sem um cobrir o outro. vagas_divergentes (o modelo não achou as 7 vagas) é frequente com as fotos de exemplo, que são de perto.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-blu"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 30,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-blu"
+          },
+          "expr": "sum by (motivo) (increase(blu_imagens_suspeitas_total[$__interval]))",
           "legendFormat": "{{motivo}}",
           "refId": "A"
         }
@@ -673,7 +787,144 @@
           },
           "custom": {
             "drawStyle": "bars",
-            "fillOpacity": 60
+            "fillOpacity": 80,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "borrada"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "escura"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "estourada"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "vagas_divergentes"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "interval": "1m"
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Vagas detectadas por imagem (média, 5 min)",
+      "description": "A maquete tem 7 vagas (linha tracejada). Média abaixo de 7 por muito tempo indica câmera deslocada, vaga encoberta ou o modelo deixando de detectar vagas.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-blu"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-blu"
+          },
+          "expr": "sum(rate(blu_vagas_detectadas_sum[5m])) / sum(rate(blu_vagas_detectadas_count[5m]))",
+          "legendFormat": "média de vagas detectadas",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 10,
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "text",
+                "value": 7
+              }
+            ]
+          },
+          "custom": {
+            "lineWidth": 2,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
           }
         },
         "overrides": []
@@ -691,17 +942,17 @@
       }
     },
     {
-      "id": 14,
+      "id": 16,
       "type": "timeseries",
-      "title": "Vagas detectadas e confiança do modelo",
-      "description": "A maquete tem 7 vagas. A confiança fica no eixo da direita.",
+      "title": "Confiança média das detecções (5 min)",
+      "description": "Confiança média do modelo em cada detecção, por estado da vaga. Uma queda costuma vir antes dos erros de classificação.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-blu"
       },
       "gridPos": {
         "x": 12,
-        "y": 30,
+        "y": 38,
         "w": 12,
         "h": 8
       },
@@ -711,45 +962,51 @@
             "type": "prometheus",
             "uid": "prometheus-blu"
           },
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(blu_vagas_detectadas_bucket{}[1m])))",
-          "legendFormat": "vagas detectadas (mediana)",
+          "expr": "sum by (estado) (rate(blu_confianca_deteccao_sum[5m])) / sum by (estado) (rate(blu_confianca_deteccao_count[5m]))",
+          "legendFormat": "{{estado}}",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-blu"
-          },
-          "expr": "histogram_quantile(0.5, sum by (le, estado) (rate(blu_confianca_deteccao_bucket[1m])))",
-          "legendFormat": "confiança mediana {{estado}}",
-          "refId": "B"
         }
       ],
       "fieldConfig": {
         "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
           "color": {
             "mode": "palette-classic"
           },
-          "custom": {}
+          "custom": {
+            "lineWidth": 2
+          }
         },
         "overrides": [
           {
             "matcher": {
-              "id": "byRegexp",
-              "options": "confiança.*"
+              "id": "byName",
+              "options": "LIVRE"
             },
             "properties": [
               {
-                "id": "custom.axisPlacement",
-                "value": "right"
-              },
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "OCUPADA"
+            },
+            "properties": [
               {
-                "id": "unit",
-                "value": "percentunit"
-              },
-              {
-                "id": "max",
-                "value": 1
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
               }
             ]
           }

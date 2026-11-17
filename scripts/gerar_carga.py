@@ -26,6 +26,7 @@ from PIL import Image, ImageEnhance, ImageFilter
 
 _EXTENSOES = {".jpg", ".jpeg", ".png"}
 _ENDPOINTS = ("/prever_ocupacao", "/prever_ocupacao_imagem")
+_DEGRADACOES = ("borrada", "escura", "estourada")
 _ARQUIVO_INVALIDO = b"isto nao e uma imagem, e um arquivo de texto\n"
 
 
@@ -58,6 +59,13 @@ def main() -> int:
         metavar="FRACAO",
         help="fração das imagens degradadas no cliente (só --degradar = 0.3)",
     )
+    parser.add_argument(
+        "--tipo",
+        choices=(*_DEGRADACOES, "todas"),
+        default="todas",
+        help="degradação aplicada; um tipo só simula um defeito específico da câmera "
+        "(ex.: --degradar 0.8 --tipo borrada para disparar o alerta de imagem borrada)",
+    )
     parser.add_argument("--semente", type=int, default=None)
     args = parser.parse_args()
 
@@ -82,7 +90,7 @@ def main() -> int:
                 dados = conteudo[caminho]
                 tipo = "original"
                 if aleatorio.random() < args.degradar:
-                    tipo = aleatorio.choice(("borrada", "escura", "estourada"))
+                    tipo = aleatorio.choice(_DEGRADACOES) if args.tipo == "todas" else args.tipo
                     dados = _degradar(dados, tipo)
                 arquivo = (caminho.name, dados, "image/jpeg")
 
