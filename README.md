@@ -353,14 +353,18 @@ Abra `resultado_anotado.jpg` para ver o resultado.
 Com o serviço rodando, execute os comandos abaixo a partir da raiz do
 repositório.
 
+As três fotos de exemplo têm o mesmo enquadramento: a maquete inteira, vista
+de cima, como a câmera fixa de produção veria. Assim, a diferença entre os
+casos fica só na ocupação das vagas, e não no ângulo da foto.
+
 ### Windows (PowerShell)
 
 ```powershell
-# Caso 1 — maioria das vagas livres
-curl.exe -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_livre.jpeg;type=image/jpeg"
+# Caso 1 — todas as vagas livres
+curl.exe -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_livre.jpg;type=image/jpeg"
 
-# Caso 2 — maioria das vagas ocupadas
-curl.exe -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_ocupado.jpeg;type=image/jpeg"
+# Caso 2 — todas as vagas ocupadas
+curl.exe -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_ocupado.jpg;type=image/jpeg"
 
 # Caso 3 — vagas livres e ocupadas na mesma imagem
 curl.exe -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_misto.jpeg;type=image/jpeg"
@@ -375,11 +379,11 @@ curl.exe -i -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/ar
 ### Linux / macOS / Git Bash / WSL
 
 ```bash
-# Caso 1 — maioria das vagas livres
-curl -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_livre.jpeg;type=image/jpeg"
+# Caso 1 — todas as vagas livres
+curl -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_livre.jpg;type=image/jpeg"
 
-# Caso 2 — maioria das vagas ocupadas
-curl -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_ocupado.jpeg;type=image/jpeg"
+# Caso 2 — todas as vagas ocupadas
+curl -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_ocupado.jpg;type=image/jpeg"
 
 # Caso 3 — vagas livres e ocupadas na mesma imagem
 curl -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_misto.jpeg;type=image/jpeg"
@@ -390,7 +394,17 @@ curl -i -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/arquiv
 
 Os três primeiros devolvem `200` com o JSON descrito acima; o quarto devolve
 `400` com o erro de validação `arquivo_invalido` (ver seção 3). Todos os
-quatro foram testados manualmente contra o serviço real antes desta entrega.
+quatro foram testados manualmente contra o serviço real antes desta entrega,
+com este resultado:
+
+| Imagem | `total_vagas` | `livres` | `ocupadas` | Confiança |
+|---|---:|---:|---:|---|
+| `exemplo_livre.jpg` | 7 | 7 | 0 | 0,89 a 0,95 |
+| `exemplo_ocupado.jpg` | 7 | 0 | 7 | 0,87 a 0,91 |
+| `exemplo_misto.jpeg` | 7 | 3 | 4 | 0,80 a 0,93 |
+
+O carro parado na pista, fora das vagas, não é contado. A vaga com o pedaço de
+papelão sai como ocupada, porque está bloqueada.
 
 Ou rode tudo de uma vez: `uv run just demo` (ou `just demo`, com a venv
 ativada).
@@ -628,16 +642,22 @@ Por que esta métrica:
 - foto fora de foco, lente suja ou câmera tremida apagam essas linhas, e a
   nitidez cai **antes** de o modelo começar a errar.
 
-Medido nas imagens de `samples/`:
+Medido na imagem `samples/exemplo_livre.jpg`:
 
 | Imagem | Nitidez | Luminância |
 |---|---:|---:|
-| `exemplo_livre` original | 136,4 | 127,6 |
-| com desfoque gaussiano raio 2 | 13,6 | 127,6 |
-| com desfoque gaussiano raio 4 | 3,0 | 127,6 |
-| escurecida para 45% | 28,5 | 56,9 |
-| clareada 1,8x | 299,8 | 203,5 (53% dos pixels estourados) |
-| JPEG com qualidade 5 | 135,4 | 126,5 |
+| original | 287,0 | 206,4 |
+| com desfoque gaussiano raio 2 | 34,6 | 206,4 |
+| com desfoque gaussiano raio 4 | 6,7 | 206,3 |
+| escurecida para 45% | 58,8 | 92,3 |
+| clareada 1,8x | 227,8 | 249,3 (95% dos pixels estourados) |
+| JPEG com qualidade 5 | 282,9 | 204,4 |
+
+O desfoque de raio 2 ainda fica acima do limite de `borrada` (15) nesta foto,
+que é bem nítida; o de raio 4, usado pelo `just carga --degradar`, fica abaixo.
+A foto também é mais clara que todas as do treino (luminância 206, contra no
+máximo 189), mas isso não gera alerta: as regras olham só imagem escura e
+pixels estourados.
 
 Uma imagem é marcada como suspeita quando sai da faixa das 245 fotos de
 treino (`referencia/resumo.json`). Os limites são configuráveis pelo `.env`:
@@ -768,8 +788,10 @@ regra tem três salvaguardas para não alertar à toa:
 - a situação precisa **durar 1 minuto** (`for: 1m`) antes de virar alerta.
 
 A regra "vagas detectadas diferente de 7" (câmera deslocada) ficou de fora de
-propósito. Com as fotos de `samples/`, de celular e de perto, ela dispararia o
-tempo todo. Vale ativá-la quando a referência for refeita com fotos da câmera
+propósito. A referência vem das fotos de treino, que são de celular e de perto
+(só 27% mostram as 7 vagas), então não há uma base confiável para ela. As fotos
+de `samples/` já mostram a maquete inteira, e o modelo encontra as 7 vagas nas
+três. Vale ativar a regra quando a referência for refeita com fotos da câmera
 fixa.
 
 **O e-mail:** por padrão vai para o **Mailpit**, uma caixa de e-mail local do
@@ -845,13 +867,18 @@ docs/             - metrics.md (como ler o /metrics), planilha e screenshot do G
 docker-compose.yml - sobe o serviço (3000), Prometheus (9090), Grafana (3001),
                      Alertmanager (9093) e Mailpit (8025)
 .env.alertas.example - modelo para mandar os alertas a um e-mail de verdade
-samples/          - 3 imagens de exemplo + 1 arquivo inválido, para os testes da seção 4
+samples/          - 3 imagens de exemplo (maquete inteira, vista de cima) + 1 arquivo
+                    inválido, para os testes da seção 4
 best.pt           - pesos do modelo (versionado; ver seção 5)
 bentofile.yaml    - manifesto de build/containerização do BentoML
 justfile          - atalhos: serve, demo, lint, test, docker, docker-run, up, down,
                     monitor-up, carga, planilha, analisar, referencia
 requirements.txt  - instala só o uv via pip (não as dependências do serviço)
 ```
+
+## 8. Uso de IA
+
+Utilização do Claude Opus 5.5 para criação inicial do esqueleto do código e correção de erros, e utilização do Copilot do VS Code para verificar o funcionamento de algumas funcionalidades do projeto.
 
 ## Diferenciais implementados
 

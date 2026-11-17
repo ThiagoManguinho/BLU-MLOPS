@@ -73,6 +73,8 @@ groups:
             sol direto na lente ou a exposição da câmera.
 
       # Não incluída de propósito: "vagas detectadas diferente de 7" (câmera
-      # deslocada). Com as fotos de exemplo de samples/, que são de celular e
-      # de perto, ela dispararia sempre. Vale ativar quando a referência for
-      # refeita com fotos da câmera fixa (ESP32-CAM).
+      # deslocada). A referência vem das fotos de treino, que são de celular e
+      # de perto (só 27% mostram as 7 vagas), então não há base confiável para
+      # ela. As fotos de samples/ já mostram a maquete inteira e o modelo acha
+      # as 7 vagas nas três. Vale ativar quando a referência for refeita com
+      # fotos da câmera fixa (ESP32-CAM).

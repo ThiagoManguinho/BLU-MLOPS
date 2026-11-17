@@ -21,9 +21,9 @@ demo:
     #!/usr/bin/env bash
     uv run python -m bentoml serve src.blu_service.service:BluService --port 3000 &
     sleep 5
-    curl -s -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_livre.jpeg"
+    curl -s -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_livre.jpg"
     echo ""
-    curl -s -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_ocupado.jpeg"
+    curl -s -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_ocupado.jpg"
     echo ""
     curl -s -X POST http://localhost:3000/prever_ocupacao -F "imagem=@samples/exemplo_misto.jpeg"
     echo ""
