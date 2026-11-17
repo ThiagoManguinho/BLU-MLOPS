@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import os
+import time
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -9,7 +10,7 @@ import bentoml
 from PIL import Image, UnidentifiedImageError
 from pydantic import WrapValidator
 
-from . import model
+from . import model, monitoramento
 from .logic import ResultadoOcupacao, classificar_ocupacao
 from .render import anotar_imagem
 
@@ -43,26 +44,44 @@ class _ModeloIndisponivel(Exception):
         self.detalhe = detalhe
 
 
-def _avaliar(imagem: Image.Image) -> ResultadoOcupacao:
+def _avaliar(imagem: Image.Image, ctx: bentoml.Context) -> ResultadoOcupacao:
 
-    """Classifica a imagem já recebida pelo BentoML. Levanta as exceções acima
-    em caso de erro, para que cada endpoint decida como respondê-las (JSON de
-    erro no endpoint de JSON, imagem de erro não faz sentido no endpoint de
-    imagem)."""
+    """Classifica a imagem já recebida pelo BentoML e registra o que entrou e
+    o que saiu no log de monitoramento. Levanta as exceções acima em caso de
+    erro, para que cada endpoint decida como respondê-las (JSON de erro no
+    endpoint de JSON, imagem de erro não faz sentido no endpoint de imagem)."""
+
+    # Dicionário criado pelo MiddlewareRegistro para este pedido; ele grava a
+    # linha de log quando a resposta sai. Sem o middleware, vira um rascunho.
+    registro = getattr(ctx.request.state, "registro", {})
 
     # O BentoML já abriu o arquivo como imagem PIL, mas o PIL só decodifica os
     # pixels sob demanda: um JPEG truncado passa pela abertura e só falha aqui.
     try:
         imagem.load()
     except (UnidentifiedImageError, OSError) as erro:
+        registro["erro"] = {"codigo": "arquivo_invalido", "detalhe": str(erro)}
         raise _ImagemInvalida(str(erro)) from erro
 
+    entrada = monitoramento.caracteristicas_imagem(imagem)
+    registro["entrada"] = entrada
+
+    inicio = time.perf_counter()
     try:
         deteccoes = model.prever(imagem)
     except FileNotFoundError as erro:
+        registro["erro"] = {"codigo": "modelo_indisponivel", "detalhe": str(erro)}
         raise _ModeloIndisponivel(str(erro)) from erro
+    registro["latencia_modelo_ms"] = round((time.perf_counter() - inicio) * 1000, 3)
 
-    return classificar_ocupacao(deteccoes, _LIMIAR_CONFIANCA)
+    resultado = classificar_ocupacao(deteccoes, _LIMIAR_CONFIANCA)
+
+    saida = monitoramento.caracteristicas_saida(resultado, imagem.width, imagem.height)
+    motivos = monitoramento.motivos_suspeita(entrada, saida)
+    registro["saida"] = saida
+    registro["alertas"] = motivos
+    monitoramento.atualizar_metricas(ctx.request.url.path, entrada, saida, motivos)
+    return resultado
 
 
 @bentoml.service(name="blu_service")
@@ -91,7 +110,7 @@ class BluService:
         """
         
         try:
-            resultado = _avaliar(imagem)
+            resultado = _avaliar(imagem, ctx)
         except _ImagemInvalida as erro:
             ctx.response.status_code = 400
             return {"erro": "arquivo_invalido", "detalhe": erro.detalhe}
@@ -137,10 +156,20 @@ class BluService:
         """
         
         try:
-            resultado = _avaliar(imagem)
+            resultado = _avaliar(imagem, ctx)
         except (_ImagemInvalida, _ModeloIndisponivel):
             
             ctx.response.status_code = 400
             return Image.new("RGB", (1, 1))
 
         return Image.open(io.BytesIO(anotar_imagem(imagem, resultado)))
+
+
+# Uma linha em logs/inferencias.jsonl por pedido de inferência (ver
+# monitoramento.py). O middleware envolve o app inteiro, então registra também
+# os pedidos que o BentoML recusa antes de chegar aos endpoints.
+BluService.add_asgi_middleware(
+    monitoramento.MiddlewareRegistro,
+    modelo=model.nome_modelo(),
+    limiar_confianca=_LIMIAR_CONFIANCA,
+)

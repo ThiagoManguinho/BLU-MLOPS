@@ -1,0 +1,24 @@
+# Coleta o GET /metrics do serviço BLU pela porta 3000 da máquina. O mesmo alvo
+# serve para as duas formas de rodar:
+#   - serviço em contêiner (just up): a porta 3000 da máquina é a do contêiner blu;
+#   - serviço na máquina (just serve + just monitor-up): é o próprio processo.
+# (Não use dois alvos, `blu:3000` e este: no modo contêiner os dois chegariam
+# ao mesmo serviço e o Grafana somaria tudo em dobro.)
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+# Regras de alerta (qualidade da imagem) e para onde mandar os alertas.
+rule_files:
+  - /etc/prometheus/alertas.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: blu_service
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:3000"]

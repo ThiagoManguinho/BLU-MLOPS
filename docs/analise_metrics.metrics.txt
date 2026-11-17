@@ -1,0 +1,234 @@
+# HELP bentoml_service_request_total Total number of runner RPC
+# TYPE bentoml_service_request_total counter
+bentoml_service_request_total{endpoint="/prever_ocupacao",http_response_code="200",runner_name="blu_service",service_name="blu_service",service_version="not available"} 148.0
+bentoml_service_request_total{endpoint="/prever_ocupacao",http_response_code="500",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.0
+bentoml_service_request_total{endpoint="/prever_ocupacao_imagem",http_response_code="200",runner_name="blu_service",service_name="blu_service",service_version="not available"} 38.0
+bentoml_service_request_total{endpoint="/prever_ocupacao_imagem",http_response_code="500",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.0
+bentoml_service_request_total{endpoint="/readyz",http_response_code="200",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_total{endpoint="/prever_ocupacao",http_response_code="400",runner_name="blu_service",service_name="blu_service",service_version="not available"} 12.0
+bentoml_service_request_total{endpoint="/prever_ocupacao_imagem",http_response_code="400",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+# HELP blu_imagens_suspeitas_total Imagens fora da faixa do conjunto de referência, por motivo.
+# TYPE blu_imagens_suspeitas_total counter
+blu_imagens_suspeitas_total{motivo="estourada"} 23.0
+blu_imagens_suspeitas_total{motivo="vagas_divergentes"} 133.0
+blu_imagens_suspeitas_total{motivo="escura"} 22.0
+blu_imagens_suspeitas_total{motivo="borrada"} 24.0
+# HELP bentoml_service_last_request_timestamp_seconds Timestamp of the last received request
+# TYPE bentoml_service_last_request_timestamp_seconds gauge
+bentoml_service_last_request_timestamp_seconds{pid="22544",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.7947886730114317e+09
+# HELP blu_taxa_ocupacao Taxa de ocupação da última imagem analisada (ocupadas / total detectado).
+# TYPE blu_taxa_ocupacao gauge
+blu_taxa_ocupacao 0.2
+# HELP bentoml_service_request_in_progress Total number of runner RPC in progress now
+# TYPE bentoml_service_request_in_progress gauge
+bentoml_service_request_in_progress{endpoint="/readyz",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.0
+bentoml_service_request_in_progress{endpoint="/prever_ocupacao",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.0
+bentoml_service_request_in_progress{endpoint="/prever_ocupacao_imagem",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.0
+# HELP bentoml_service_request_duration_seconds runner RPC duration in seconds
+# TYPE bentoml_service_request_duration_seconds histogram
+bentoml_service_request_duration_seconds_sum{endpoint="/readyz",http_response_code="200",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.0015878000122029334
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="0.005",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="0.01",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="0.025",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="0.05",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="0.1",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="0.25",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="0.5",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="1.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="2.5",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="5.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="10.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="30.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="60.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="120.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="180.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/readyz",http_response_code="200",le="+Inf",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_count{endpoint="/readyz",http_response_code="200",runner_name="blu_service",service_name="blu_service",service_version="not available"} 1.0
+bentoml_service_request_duration_seconds_sum{endpoint="/prever_ocupacao",http_response_code="400",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.3063413000490982
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="0.005",runner_name="blu_service",service_name="blu_service",service_version="not available"} 3.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="0.01",runner_name="blu_service",service_name="blu_service",service_version="not available"} 8.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="0.025",runner_name="blu_service",service_name="blu_service",service_version="not available"} 10.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="0.05",runner_name="blu_service",service_name="blu_service",service_version="not available"} 11.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="0.1",runner_name="blu_service",service_name="blu_service",service_version="not available"} 11.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="0.25",runner_name="blu_service",service_name="blu_service",service_version="not available"} 12.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="0.5",runner_name="blu_service",service_name="blu_service",service_version="not available"} 12.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="1.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 12.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="2.5",runner_name="blu_service",service_name="blu_service",service_version="not available"} 12.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="5.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 12.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="10.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 12.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="30.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 12.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="60.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 12.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="120.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 12.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="180.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 12.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="400",le="+Inf",runner_name="blu_service",service_name="blu_service",service_version="not available"} 12.0
+bentoml_service_request_duration_seconds_count{endpoint="/prever_ocupacao",http_response_code="400",runner_name="blu_service",service_name="blu_service",service_version="not available"} 12.0
+bentoml_service_request_duration_seconds_sum{endpoint="/prever_ocupacao",http_response_code="200",runner_name="blu_service",service_name="blu_service",service_version="not available"} 43.46724869974423
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="0.005",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="0.01",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="0.025",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="0.05",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="0.1",runner_name="blu_service",service_name="blu_service",service_version="not available"} 29.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="0.25",runner_name="blu_service",service_name="blu_service",service_version="not available"} 63.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="0.5",runner_name="blu_service",service_name="blu_service",service_version="not available"} 144.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="1.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 146.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="2.5",runner_name="blu_service",service_name="blu_service",service_version="not available"} 147.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="5.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 147.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="10.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 148.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="30.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 148.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="60.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 148.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="120.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 148.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="180.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 148.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao",http_response_code="200",le="+Inf",runner_name="blu_service",service_name="blu_service",service_version="not available"} 148.0
+bentoml_service_request_duration_seconds_count{endpoint="/prever_ocupacao",http_response_code="200",runner_name="blu_service",service_name="blu_service",service_version="not available"} 148.0
+bentoml_service_request_duration_seconds_sum{endpoint="/prever_ocupacao_imagem",http_response_code="400",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.018183400039561093
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="0.005",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="0.01",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="0.025",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="0.05",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="0.1",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="0.25",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="0.5",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="1.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="2.5",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="5.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="10.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="30.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="60.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="120.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="180.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="400",le="+Inf",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_count{endpoint="/prever_ocupacao_imagem",http_response_code="400",runner_name="blu_service",service_name="blu_service",service_version="not available"} 5.0
+bentoml_service_request_duration_seconds_sum{endpoint="/prever_ocupacao_imagem",http_response_code="200",runner_name="blu_service",service_name="blu_service",service_version="not available"} 10.363974000007147
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="0.005",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="0.01",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="0.025",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="0.05",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="0.1",runner_name="blu_service",service_name="blu_service",service_version="not available"} 0.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="0.25",runner_name="blu_service",service_name="blu_service",service_version="not available"} 19.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="0.5",runner_name="blu_service",service_name="blu_service",service_version="not available"} 36.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="1.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 38.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="2.5",runner_name="blu_service",service_name="blu_service",service_version="not available"} 38.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="5.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 38.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="10.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 38.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="30.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 38.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="60.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 38.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="120.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 38.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="180.0",runner_name="blu_service",service_name="blu_service",service_version="not available"} 38.0
+bentoml_service_request_duration_seconds_bucket{endpoint="/prever_ocupacao_imagem",http_response_code="200",le="+Inf",runner_name="blu_service",service_name="blu_service",service_version="not available"} 38.0
+bentoml_service_request_duration_seconds_count{endpoint="/prever_ocupacao_imagem",http_response_code="200",runner_name="blu_service",service_name="blu_service",service_version="not available"} 38.0
+# HELP blu_imagem_nitidez Nitidez da imagem recebida (variância do Laplaciano, cópia com 640 px de largura).
+# TYPE blu_imagem_nitidez histogram
+blu_imagem_nitidez_sum{endpoint="/prever_ocupacao"} 23597.220199999974
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao",le="5.0"} 14.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao",le="10.0"} 19.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao",le="15.0"} 19.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao",le="25.0"} 19.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao",le="50.0"} 28.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao",le="75.0"} 36.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao",le="100.0"} 36.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao",le="150.0"} 107.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao",le="200.0"} 107.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao",le="300.0"} 119.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao",le="400.0"} 144.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao",le="500.0"} 144.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao",le="750.0"} 148.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao",le="+Inf"} 148.0
+blu_imagem_nitidez_count{endpoint="/prever_ocupacao"} 148.0
+blu_imagem_nitidez_sum{endpoint="/prever_ocupacao_imagem"} 6463.298500000001
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao_imagem",le="5.0"} 2.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao_imagem",le="10.0"} 5.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao_imagem",le="15.0"} 5.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao_imagem",le="25.0"} 5.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao_imagem",le="50.0"} 10.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao_imagem",le="75.0"} 10.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao_imagem",le="100.0"} 10.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao_imagem",le="150.0"} 25.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao_imagem",le="200.0"} 25.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao_imagem",le="300.0"} 30.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao_imagem",le="400.0"} 36.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao_imagem",le="500.0"} 36.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao_imagem",le="750.0"} 38.0
+blu_imagem_nitidez_bucket{endpoint="/prever_ocupacao_imagem",le="+Inf"} 38.0
+blu_imagem_nitidez_count{endpoint="/prever_ocupacao_imagem"} 38.0
+# HELP blu_imagem_luminancia Luminância média da imagem recebida (0 a 255).
+# TYPE blu_imagem_luminancia histogram
+blu_imagem_luminancia_sum{endpoint="/prever_ocupacao"} 20616.265899999995
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao",le="40.0"} 0.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao",le="60.0"} 9.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao",le="80.0"} 17.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao",le="100.0"} 17.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao",le="120.0"} 17.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao",le="140.0"} 102.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao",le="160.0"} 102.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao",le="180.0"} 132.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao",le="200.0"} 132.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao",le="220.0"} 144.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao",le="+Inf"} 148.0
+blu_imagem_luminancia_count{endpoint="/prever_ocupacao"} 148.0
+blu_imagem_luminancia_sum{endpoint="/prever_ocupacao_imagem"} 5498.6581
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao_imagem",le="40.0"} 0.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao_imagem",le="60.0"} 5.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao_imagem",le="80.0"} 5.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao_imagem",le="100.0"} 5.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao_imagem",le="120.0"} 5.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao_imagem",le="140.0"} 22.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao_imagem",le="160.0"} 22.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao_imagem",le="180.0"} 31.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao_imagem",le="200.0"} 31.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao_imagem",le="220.0"} 36.0
+blu_imagem_luminancia_bucket{endpoint="/prever_ocupacao_imagem",le="+Inf"} 38.0
+blu_imagem_luminancia_count{endpoint="/prever_ocupacao_imagem"} 38.0
+# HELP blu_vagas_detectadas Quantidade de vagas detectadas por imagem (a maquete tem 7).
+# TYPE blu_vagas_detectadas histogram
+blu_vagas_detectadas_sum{endpoint="/prever_ocupacao"} 763.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao",le="0.0"} 0.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao",le="1.0"} 0.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao",le="2.0"} 0.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao",le="3.0"} 7.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao",le="4.0"} 54.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao",le="5.0"} 106.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao",le="6.0"} 106.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao",le="7.0"} 148.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao",le="8.0"} 148.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao",le="9.0"} 148.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao",le="10.0"} 148.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao",le="+Inf"} 148.0
+blu_vagas_detectadas_count{endpoint="/prever_ocupacao"} 148.0
+blu_vagas_detectadas_sum{endpoint="/prever_ocupacao_imagem"} 200.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao_imagem",le="0.0"} 0.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao_imagem",le="1.0"} 0.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao_imagem",le="2.0"} 0.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao_imagem",le="3.0"} 0.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao_imagem",le="4.0"} 12.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao_imagem",le="5.0"} 27.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao_imagem",le="6.0"} 27.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao_imagem",le="7.0"} 38.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao_imagem",le="8.0"} 38.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao_imagem",le="9.0"} 38.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao_imagem",le="10.0"} 38.0
+blu_vagas_detectadas_bucket{endpoint="/prever_ocupacao_imagem",le="+Inf"} 38.0
+blu_vagas_detectadas_count{endpoint="/prever_ocupacao_imagem"} 38.0
+# HELP blu_confianca_deteccao Confiança de cada detecção aceita pelo limiar, por estado da vaga.
+# TYPE blu_confianca_deteccao histogram
+blu_confianca_deteccao_sum{estado="OCUPADA"} 348.77969999999993
+blu_confianca_deteccao_bucket{estado="OCUPADA",le="0.3"} 0.0
+blu_confianca_deteccao_bucket{estado="OCUPADA",le="0.4"} 0.0
+blu_confianca_deteccao_bucket{estado="OCUPADA",le="0.5"} 10.0
+blu_confianca_deteccao_bucket{estado="OCUPADA",le="0.6"} 10.0
+blu_confianca_deteccao_bucket{estado="OCUPADA",le="0.7"} 58.0
+blu_confianca_deteccao_bucket{estado="OCUPADA",le="0.8"} 89.0
+blu_confianca_deteccao_bucket{estado="OCUPADA",le="0.9"} 255.0
+blu_confianca_deteccao_bucket{estado="OCUPADA",le="0.95"} 411.0
+blu_confianca_deteccao_bucket{estado="OCUPADA",le="+Inf"} 411.0
+blu_confianca_deteccao_count{estado="OCUPADA"} 411.0
+blu_confianca_deteccao_sum{estado="LIVRE"} 409.6538999999997
+blu_confianca_deteccao_bucket{estado="LIVRE",le="0.3"} 10.0
+blu_confianca_deteccao_bucket{estado="LIVRE",le="0.4"} 59.0
+blu_confianca_deteccao_bucket{estado="LIVRE",le="0.5"} 125.0
+blu_confianca_deteccao_bucket{estado="LIVRE",le="0.6"} 188.0
+blu_confianca_deteccao_bucket{estado="LIVRE",le="0.7"} 192.0
+blu_confianca_deteccao_bucket{estado="LIVRE",le="0.8"} 208.0
+blu_confianca_deteccao_bucket{estado="LIVRE",le="0.9"} 343.0
+blu_confianca_deteccao_bucket{estado="LIVRE",le="0.95"} 489.0
+blu_confianca_deteccao_bucket{estado="LIVRE",le="+Inf"} 552.0
+blu_confianca_deteccao_count{estado="LIVRE"} 552.0

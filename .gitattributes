@@ -1,0 +1,6 @@
+# Scripts executados dentro de contêineres Linux precisam de quebra de linha
+# LF; com CRLF (padrão do checkout no Windows), o sh falha com "\r: not found".
+*.sh   text eol=lf
+*.awk  text eol=lf
+*.modelo text eol=lf
+*.tmpl text eol=lf

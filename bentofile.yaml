@@ -13,6 +13,9 @@ description: |
   Endpoints:
     - POST /prever_ocupacao        resposta em JSON
     - POST /prever_ocupacao_imagem resposta em JPEG, com as vagas desenhadas
+    - GET  /metrics                métricas no formato Prometheus
+
+  Cada pedido de inferência vira uma linha em logs/inferencias.jsonl.
 
   Modelo: YOLOv8n-OBB (ultralytics), treinado pela equipe BLU.
   A decisão permanece humana: o serviço informa, não fiscaliza nem cobra.
@@ -26,7 +29,8 @@ python:
     - torch>=2.2,<3
     - pillow>=10.0
     - numpy>=1.26
-  
+    - prometheus-client>=0.20
+
   extra_index_url:
     - "https://download.pytorch.org/whl/cpu"
 docker:

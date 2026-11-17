@@ -1,0 +1,80 @@
+# Regras de alerta do Prometheus: qualidade da imagem que chega da câmera.
+#
+# Uma foto ruim isolada (alguém passou a mão na frente, um reflexo) não é
+# problema. O sinal de câmera com defeito é uma FRAÇÃO alta de fotos ruins por
+# algum tempo. Por isso cada regra:
+#   - olha os últimos 5 minutos;
+#   - exige pelo menos 5 imagens nesse período (para não alertar com 1 ou 2);
+#   - dispara quando mais de 30% das imagens estão fora da faixa e isso se
+#     mantém por 1 minuto (`for`).
+#
+# Os limites por imagem (nitidez < 15, luminância < 100, mais de 1% de pixels
+# estourados) são os mesmos do serviço e vêm do conjunto de referência
+# (referencia/resumo.json). Os alertas seguem para o Alertmanager, que manda
+# o e-mail.
+
+groups:
+  - name: blu_qualidade_imagem
+    rules:
+      - alert: CameraImagemBorrada
+        expr: |
+          (
+            sum(increase(blu_imagem_nitidez_bucket{le="15.0"}[5m]))
+              / sum(increase(blu_imagem_nitidez_count[5m]))
+          ) > 0.3
+          and sum(increase(blu_imagem_nitidez_count[5m])) >= 5
+        for: 1m
+        labels:
+          severidade: aviso
+          componente: camera
+        annotations:
+          resumo: Imagens borradas, possível problema na câmera
+          descricao: >-
+            {{ $value | humanizePercentage }} das imagens dos últimos 5 minutos
+            têm nitidez abaixo de 15 (as fotos de treino ficam acima disso em 99%
+            dos casos). Verifique o foco, se a lente está suja ou se a câmera
+            está tremendo.
+
+      - alert: CameraImagemEscura
+        expr: |
+          (
+            sum(increase(blu_imagem_luminancia_bucket{le="100.0"}[5m]))
+              / sum(increase(blu_imagem_luminancia_count[5m]))
+          ) > 0.3
+          and sum(increase(blu_imagem_luminancia_count[5m])) >= 5
+        for: 1m
+        labels:
+          severidade: aviso
+          componente: camera
+        annotations:
+          resumo: Imagens escuras, possível problema de iluminação ou na câmera
+          descricao: >-
+            {{ $value | humanizePercentage }} das imagens dos últimos 5 minutos
+            têm luminância média abaixo de 100 (a foto mais escura do treino tem
+            89). Verifique a iluminação do local, se algo cobre a câmera ou se a
+            exposição da câmera mudou.
+
+      - alert: CameraImagemEstourada
+        expr: |
+          (
+            sum(increase(blu_imagens_suspeitas_total{motivo="estourada"}[5m]))
+              / sum(increase(blu_imagem_nitidez_count[5m]))
+          ) > 0.3
+          and sum(increase(blu_imagem_nitidez_count[5m])) >= 5
+        for: 1m
+        labels:
+          severidade: aviso
+          componente: camera
+        annotations:
+          resumo: Imagens estouradas, luz demais na câmera
+          descricao: >-
+            {{ $value | humanizePercentage }} das imagens dos últimos 5 minutos
+            têm mais de 1% dos pixels estourados (brancos). Verifique reflexo,
+            sol direto na lente ou a exposição da câmera.
+
+      # Não incluída de propósito: "vagas detectadas diferente de 7" (câmera
+      # deslocada). A referência vem das fotos de treino, que são de celular e
+      # de perto (só 27% mostram as 7 vagas), então não há base confiável para
+      # ela. As fotos de samples/ já mostram a maquete inteira e o modelo acha
+      # as 7 vagas nas três. Vale ativar quando a referência for refeita com
+      # fotos da câmera fixa (ESP32-CAM).

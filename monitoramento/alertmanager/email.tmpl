@@ -1,0 +1,46 @@
+{{/* Assunto e corpo dos e-mails de alerta do BLU. */}}
+
+{{ define "blu.assunto" -}}
+[BLU] {{ if eq .Status "firing" }}ALERTA{{ else }}Resolvido{{ end }}: {{ .CommonAnnotations.resumo }}
+{{- end }}
+
+{{ define "blu.email.html" -}}
+<html>
+<body style="font-family: Arial, sans-serif; color: #222;">
+  {{ if eq .Status "firing" -}}
+  <h2 style="color: #c0392b;">⚠ Alerta de qualidade da imagem</h2>
+  <p>O monitoramento do serviço BLU detectou imagens fora do padrão vindas da
+     câmera. Isso costuma indicar um problema físico na câmera ou no ambiente,
+     antes de o modelo começar a errar a ocupação das vagas.</p>
+  {{- else -}}
+  <h2 style="color: #27ae60;">✔ Alerta resolvido</h2>
+  <p>As imagens voltaram ao padrão esperado.</p>
+  {{- end }}
+
+  {{ range .Alerts -}}
+  <table style="border-collapse: collapse; margin: 12px 0; min-width: 480px;">
+    <tr><td style="padding: 4px 8px; background: #f2f2f2;"><b>Alerta</b></td>
+        <td style="padding: 4px 8px;">{{ .Labels.alertname }} ({{ if eq .Status "firing" }}ativo{{ else }}resolvido{{ end }})</td></tr>
+    <tr><td style="padding: 4px 8px; background: #f2f2f2;"><b>Resumo</b></td>
+        <td style="padding: 4px 8px;">{{ .Annotations.resumo }}</td></tr>
+    <tr><td style="padding: 4px 8px; background: #f2f2f2;"><b>Detalhe</b></td>
+        <td style="padding: 4px 8px;">{{ .Annotations.descricao }}</td></tr>
+    <tr><td style="padding: 4px 8px; background: #f2f2f2;"><b>Início</b></td>
+        <td style="padding: 4px 8px;">{{ .StartsAt.Format "02/01/2006 15:04:05 MST" }}</td></tr>
+    {{ if eq .Status "resolved" -}}
+    <tr><td style="padding: 4px 8px; background: #f2f2f2;"><b>Fim</b></td>
+        <td style="padding: 4px 8px;">{{ .EndsAt.Format "02/01/2006 15:04:05 MST" }}</td></tr>
+    {{- end }}
+    <tr><td style="padding: 4px 8px; background: #f2f2f2;"><b>Severidade</b></td>
+        <td style="padding: 4px 8px;">{{ .Labels.severidade }}</td></tr>
+  </table>
+  {{- end }}
+
+  <p>Painel: <a href="http://localhost:3001">Grafana</a> ·
+     Alertas: <a href="http://localhost:9093">Alertmanager</a> ·
+     Regras: <a href="http://localhost:9090/alerts">Prometheus</a></p>
+  <p style="color: #888; font-size: 12px;">As imagens consideradas suspeitas
+     também estão marcadas no log (campo "alertas" em logs/inferencias.jsonl).</p>
+</body>
+</html>
+{{- end }}
