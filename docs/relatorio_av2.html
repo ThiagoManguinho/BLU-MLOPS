@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Relatório AV2 - Estatísticas de monitoramento do serviço BLU</title>
+<!-- Fonte do docs/relatorio_av2.pdf. Para gerar o PDF de novo (Windows):
+     msedge --headless=new --no-pdf-header-footer --print-to-pdf=docs\relatorio_av2.pdf docs\relatorio_av2.html -->
+<style>
+  @page { size: A4; margin: 13mm 14mm 12mm 14mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Calibri, Arial, sans-serif; font-size: 9.1pt; line-height: 1.33;
+         color: #1d1d1f; margin: 0; }
+  h1 { font-size: 15pt; margin: 0 0 2px; color: #12355b; }
+  .sub { color: #555; font-size: 9pt; margin-bottom: 8px; border-bottom: 2px solid #12355b;
+         padding-bottom: 5px; }
+  h2 { font-size: 11pt; color: #12355b; margin: 9px 0 3px; }
+  h3 { font-size: 9.8pt; margin: 6px 0 2px; color: #333; }
+  p { margin: 3px 0 4px; }
+  ul { margin: 2px 0 4px; padding-left: 16px; }
+  li { margin: 1px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 4px 0 5px; font-size: 8.6pt; }
+  th, td { border: 1px solid #c9d3df; padding: 2px 5px; text-align: right; }
+  th { background: #e8eef5; font-weight: 600; }
+  td:first-child, th:first-child { text-align: left; }
+  .destaque { background: #fff4e0; font-weight: 600; }
+  figure { margin: 4px 0 4px; text-align: center; }
+  figure img { width: 100%; }
+  figcaption { font-size: 8.2pt; color: #555; margin-top: 1px; }
+  .dupla { display: flex; gap: 8px; }
+  .dupla figure { flex: 1; }
+  .caixa { background: #f3f6fa; border-left: 3px solid #12355b; padding: 4px 8px; margin: 5px 0; }
+  code { font-family: Consolas, monospace; font-size: 8.4pt; background: #f1f1f1; padding: 0 2px; }
+  .quebra { break-before: page; }
+</style>
+</head>
+<body>
+
+<h1>Estatísticas de monitoramento do serviço BLU</h1>
+<div class="sub">AV2 · Serviço de detecção de ocupação de vagas (BentoML + YOLOv8n-OBB) ·
+  repositório BLU-MLOPS, branch <code>parte-2</code> · novembro de 2026</div>
+
+<h2>1. O que foi feito</h2>
+<ul>
+  <li><b>Tempo de resposta:</b> 365 pedidos ao endpoint <code>POST /prever_ocupacao</code>,
+    com o tempo de cada pedido registrado. Um script gera o relatório não paramétrico:
+    quartis, p90, p95, p99, intervalo de confiança do p95, boxplot e gráfico de violino.</li>
+  <li><b>Conjuntos:</b> referência com as <b>245 fotos de treino</b> do modelo (fotos de
+    celular, de perto); produção com <b>120 imagens</b> que simulam a câmera fixa (40
+    variações de cada uma das 3 fotos da maquete inteira vista de cima, com mudanças de luz,
+    leve rotação, desfoque, lente suja em 10% delas, ruído e compressão JPEG).</li>
+  <li><b>Drift:</b> os dois conjuntos foram submetidos ao servidor. A variável de entrada
+    <code>nitidez</code> (variância do Laplaciano, contínua) foi comparada por <b>KS</b>; a
+    variável de saída <code>ocupadas</code> (inteiro de 0 a 7, discreta) foi comparada por
+    <b>PSI</b>. A <code>nitidez</code> vem do log em arquivo da Parte 1, ligado a cada pedido
+    pelo <code>request_id</code>.</li>
+  <li><b>Dashboard (no lugar do Streamlit):</b> um exportador recalcula KS, PSI e percentis
+    exatos a cada 10 s sobre os últimos 100 pedidos do log. O Grafana mostra os resultados no
+    painel <i>BLU - Estatísticas (AV2)</i>.</li>
+</ul>
+
+<h2>2. Tempo de resposta (p90, p95, p99)</h2>
+<p>Medição no cliente, do envio até a resposta completa. Os pedidos foram enviados um por vez,
+  com o serviço em Docker e em CPU, depois de 3 pedidos de aquecimento descartados (o
+  primeiro carrega o modelo e leva segundos).</p>
+<table>
+  <tr><th>Conjunto</th><th>n</th><th>p50</th><th>p90</th><th>p95</th><th>p99</th><th>máx.</th>
+      <th>IC 95% do p95</th></tr>
+  <tr><td>referência</td><td>245</td><td>76,1</td><td>109,8</td><td>125,1</td><td>144,2</td>
+      <td>261,3</td><td>116,9 – 132,2</td></tr>
+  <tr><td>produção</td><td>120</td><td>78,4</td><td>116,7</td><td>126,3</td><td>136,3</td>
+      <td>138,7</td><td>116,7 – 132,0</td></tr>
+  <tr class="destaque"><td>todos</td><td>365</td><td>76,9</td><td>114,7</td><td>125,6</td>
+      <td>142,9</td><td>261,3</td><td>120,1 – 131,5</td></tr>
+</table>
+<p style="font-size:8.2pt;color:#555;margin-top:-2px">Valores em milissegundos. Percentis
+  com interpolação linear; intervalo de confiança por bootstrap (2000 reamostragens).</p>
+<ul>
+  <li><b>SLA atendido com folga:</b> 95% dos pedidos levaram até <b>126 ms</b>, cerca de um
+    terço de um SLA de exemplo de 400 ms. Nenhum pedido passou de 400 ms.</li>
+  <li><b>Cauda curta:</b> o p99 (143 ms) fica perto do p95. O único pedido muito lento
+    (261 ms) aparece só no máximo. Com n = 365, o p99 é o 4º ou 5º maior tempo, então varia
+    muito entre rodadas; o p95 é mais estável, por isso os SLAs usam o p95.</li>
+  <li><b>Por que percentis, e não média:</b> a distribuição é assimétrica à direita. A média
+    (82 ms) fica acima da mediana (77 ms) e não diz quantos pedidos passaram de um limite.</li>
+</ul>
+
+<figure>
+  <img style="width:84%" src="../estatisticas/latencia_boxplot_violino.png" alt="Boxplot e gráfico de violino do tempo de resposta">
+  <figcaption>Figura 1 – Boxplot (esquerda) e gráfico de violino (direita) do tempo de
+    resposta. No violino, as linhas marcam a mediana e o p90, o p95 e o p99.</figcaption>
+</figure>
+
+<h3>Leitura do boxplot e do violino</h3>
+<ul>
+  <li><b>Boxplot:</b> a caixa é estreita (metade dos pedidos entre 71 e 86 ms) e a cauda é só
+    para cima. Todos os pontos atípicos (14% dos pedidos) estão acima do bigode superior.</li>
+  <li><b>Violino, o que o boxplot esconde:</b> os "atípicos" formam um <b>segundo grupo</b>,
+    entre 110 e 140 ms, nos dois conjuntos. Pelo log do servidor, o modelo leva o mesmo tempo
+    nesses pedidos. Os cerca de 60 ms a mais acontecem fora da inferência, em rajadas, sem
+    relação com o tipo de imagem nem com a coleta do Prometheus. A causa provável é disputa
+    de CPU na máquina, ainda não confirmada. <b>É esse grupo que define o p95.</b></li>
+  <li>Na referência, o violino também mostra um <b>grupo rápido, por volta de 57 ms</b>. São
+    as 45 fotos com proporção de 1:2 ou mais estreita: o modelo as encaixa em 640 px mantendo
+    a proporção, gera uma matriz menor, e a inferência cai de cerca de 52 para 37 ms.</li>
+</ul>
+
+
+<h2 style="break-before: page">3. Drift entre referência e produção</h2>
+<div class="dupla">
+  <div style="flex:1">
+    <h3>Entrada: <code>nitidez</code> (contínua → KS)</h3>
+    <table>
+      <tr><th>Conjunto</th><th>Q1</th><th>mediana</th><th>Q3</th></tr>
+      <tr><td>referência</td><td>105,0</td><td>148,9</td><td>300,9</td></tr>
+      <tr><td>produção</td><td>141,3</td><td>221,3</td><td>311,7</td></tr>
+    </table>
+    <p><b>D = 0,253</b> (D crítico para α = 0,05: 0,151), p-valor = 5·10<sup>-5</sup>.
+      <b>As distribuições são diferentes.</b> As imagens de produção são mais nítidas: na
+      nitidez de 201, as curvas acumuladas mostram 66% da referência abaixo desse valor,
+      contra 41% da produção.</p>
+  </div>
+  <div style="flex:1">
+    <h3>Saída: <code>ocupadas</code> (discreta, 0 a 7 → PSI)</h3>
+    <table>
+      <tr><th>ocupadas</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th></tr>
+      <tr><td>referência</td><td>13%</td><td>28%</td><td>36%</td><td>11%</td><td>9%</td><td>2%</td><td>0%</td><td>0%</td></tr>
+      <tr><td>produção</td><td>33%</td><td>0%</td><td>0%</td><td>0%</td><td>33%</td><td>0%</td><td>0%</td><td>33%</td></tr>
+    </table>
+    <p><b>PSI = 14,4</b>, muito acima de 0,25: <b>drift</b>. O valor é inflado porque as
+      categorias sem nenhum caso recebem 10<sup>-6</sup> para o logaritmo existir; a conclusão
+      não depende disso.</p>
+  </div>
+</div>
+
+<div class="dupla">
+  <figure><img src="../estatisticas/nitidez.png" alt="CDF e boxplot da nitidez">
+    <figcaption>Figura 2 – Curvas acumuladas da nitidez (o KS é a maior distância vertical
+      entre elas).</figcaption></figure>
+  <figure><img src="../estatisticas/ocupadas.png" alt="Distribuição de vagas ocupadas">
+    <figcaption>Figura 3 – Vagas ocupadas por imagem, referência × produção.</figcaption></figure>
+</div>
+
+<p><b>Interpretação:</b> o drift não é falha do modelo, é diferença de cenário. A referência
+  são fotos de celular de perto, que mostram em geral 1 ou 2 vagas ocupadas e têm partes fora
+  de foco. A produção mostra a maquete inteira de cima, com as 7 vagas e as linhas nítidas;
+  por isso as respostas são sempre 0, 4 ou 7 ocupadas, conforme a cena. O modelo deu a mesma
+  resposta nas 40 variações de cada cena, inclusive nas 12 com desfoque forte. Os dois testes
+  cumprem o papel: avisam que o serviço recebe imagens diferentes das usadas no treino.</p>
+
+<h2>4. Monitoramento contínuo no Grafana</h2>
+<p>O exportador de drift recalcula o KS e o PSI a cada 10 s sobre os últimos 100 pedidos. Para
+  validar, os dois conjuntos foram enviados em sequência enquanto o painel era observado:</p>
+<table>
+  <tr><th>Últimos 100 pedidos vindos de...</th><th>KS (D)</th><th>D crítico</th><th>PSI</th>
+      <th>Painel mostrou</th></tr>
+  <tr><td>fotos de referência</td><td>0,118</td><td>0,161</td><td>0,019</td><td>estável / estável</td></tr>
+  <tr><td>fotos de produção</td><td>0,311</td><td>0,161</td><td>15,3</td><td>DRIFT / DRIFT</td></tr>
+</table>
+<p>O painel também mostra os percentis exatos e um boxplot da latência ao longo do tempo. O
+  painel principal foi revisado:</p>
+<ul>
+  <li>erros do cliente (4xx) separados das falhas do servidor (5xx);</li>
+  <li>p95 com o SLA de 400 ms e com o valor exato ao lado do estimado pelas faixas do
+    histograma;</li>
+  <li>ocupação média no lugar do valor de uma única imagem.</li>
+</ul>
+
+<h2>5. Conclusões e limitações</h2>
+<ul>
+  <li><b>Desempenho adequado:</b> p50 de 77 ms e p95 de 126 ms, para um cliente por vez em CPU.
+    Com vários clientes simultâneos os percentis seriam maiores. O ganho para reduzir o p95
+    está em eliminar a disputa de CPU, não em acelerar o modelo.</li>
+  <li><b>O estado da máquina pesa:</b> uma primeira rodada, logo após ligar o Docker Desktop,
+    deu p95 de 224 ms. Os números acima são de uma segunda rodada, com o ambiente estável.
+    SLAs devem ser medidos com o serviço aquecido e em mais de uma rodada.</li>
+  <li><b>A referência não representa a produção:</b> o próximo passo é refazê-la com fotos da
+    câmera fixa. Assim, um KS ou PSI alto passa a indicar mudança real (foco, luz, posição da
+    câmera ou padrão de ocupação).</li>
+</ul>
+
+<div class="caixa"><b>Como reproduzir</b> (manual completo na seção 9 do README):
+  <code>uv run just docker</code>, <code>uv run just up</code>, <code>uv run just av2</code>.
+  Scripts em <code>scripts/</code>: <code>gerar_producao.py</code>,
+  <code>submeter_conjunto.py</code>, <code>relatorio_estatisticas.py</code> e
+  <code>exportador_drift.py</code>. Resultados versionados em <code>estatisticas/</code>.
+  Painéis em http://localhost:3001.</div>
+
+</body>
+</html>

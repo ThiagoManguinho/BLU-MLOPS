@@ -11,7 +11,9 @@
 #   - Alertmanager (http://localhost:9093): recebe os alertas do Prometheus e
 #     manda o e-mail;
 #   - Mailpit (http://localhost:8025): caixa de e-mail local que recebe os
-#     e-mails de alerta quando o .env.alertas não aponta para um e-mail real.
+#     e-mails de alerta quando o .env.alertas não aponta para um e-mail real;
+#   - estatisticas (http://localhost:9101/metrics): exportador de drift (KS,
+#     PSI e percentis exatos), mostrado no painel "BLU - Estatísticas (AV2)".
 #
 # Tudo em contêiner:   just docker   (uma vez, e de novo se o código mudar)
 #                      just up       (= docker compose up -d)
@@ -95,6 +97,27 @@ services:
     image: axllent/mailpit:v1.20.0
     ports:
       - "8025:8025"
+    restart: unless-stopped
+
+  estatisticas:
+    # Exportador de drift (scripts/exportador_drift.py): lê o log do serviço e
+    # expõe KS da nitidez, PSI de vagas ocupadas e percentis exatos do tempo de
+    # resposta, comparando os últimos pedidos com o conjunto de referência.
+    build: ./monitoramento/exportador
+    image: blu_exportador_drift:latest
+    ports:
+      - "9101:9101"
+    environment:
+      BLU_LOG_PATH: /dados/logs/inferencias.jsonl
+      BLU_REFERENCIA_CSV: /dados/estatisticas/respostas_referencia.csv
+      BLU_REFERENCIA_JSONL: /dados/referencia/referencia.jsonl
+      BLU_DRIFT_JANELA: "100"
+      BLU_DRIFT_INTERVALO: "10"
+    volumes:
+      - ./scripts:/app:ro
+      - ./logs:/dados/logs:ro
+      - ./estatisticas:/dados/estatisticas:ro
+      - ./referencia:/dados/referencia:ro
     restart: unless-stopped
 
 volumes:

@@ -68,7 +68,7 @@ up:
 
 # Sobe o monitoramento e os alertas, para o serviço rodando na máquina (`just serve`).
 monitor-up:
-    docker compose up -d prometheus grafana alertmanager mailpit
+    docker compose up -d prometheus grafana alertmanager mailpit estatisticas
 
 # Derruba os contêineres (o histórico do Prometheus fica no volume).
 down:

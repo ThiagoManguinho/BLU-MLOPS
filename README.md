@@ -28,10 +28,12 @@ flowchart LR
     subgraph monitor["3. Monitoramento e alertas: contêineres"]
         direction TB
         prometheus["Prometheus, porta 9090<br/>coleta a cada 5 s, guarda 15 dias<br/>avalia as regras de alerta"]
-        grafana["Grafana, porta 3001<br/>painel BLU"]
+        grafana["Grafana, porta 3001<br/>painéis Monitoramento e Estatísticas"]
         alertmanager["Alertmanager, porta 9093<br/>agrupa e envia"]
         mailpit["E-mail<br/>Mailpit, porta 8025, ou SMTP real"]
+        drift["Exportador de drift, porta 9101<br/>KS, PSI e percentis exatos"]
         prometheus -->|consultado pelo| grafana
+        drift -->|lido a cada 10 s| prometheus
         prometheus -->|alerta de câmera| alertmanager
         alertmanager -->|e-mail| mailpit
     end
@@ -49,6 +51,7 @@ flowchart LR
     cliente -->|POST com a imagem| middleware
     carga -->|POST com a imagem| middleware
     middleware -->|grava a linha do pedido| log
+    log -->|últimos 100 pedidos| drift
     metrics -->|lido a cada 5 s| prometheus
     metrics -->|foto do momento| planilha
 ```
@@ -107,7 +110,7 @@ Depois, fora do caminho do pedido:
 |---|---|---|
 | Subir | `just docker` (1ª vez) + `just up` | `just serve` + `just monitor-up` |
 | Serviço | contêiner `blu`, porta 3000 | processo local, porta 3000 |
-| Prometheus, Grafana, Alertmanager, Mailpit | contêineres, portas 9090, 3001, 9093 e 8025 | contêineres, portas 9090, 3001, 9093 e 8025 |
+| Prometheus, Grafana, Alertmanager, Mailpit, exportador de drift | contêineres, portas 9090, 3001, 9093, 8025 e 9101 | contêineres, portas 9090, 3001, 9093, 8025 e 9101 |
 | Log | `./logs/inferencias.jsonl` (pasta montada) | `./logs/inferencias.jsonl` |
 | Parar | `just down` | Ctrl+C no `serve` + `just down` |
 
@@ -529,7 +532,7 @@ Enquanto a carga roda:
 |---|---|
 | Terminal 2 | uma linha nova por pedido, inclusive os 400 |
 | http://localhost:3000/metrics | os contadores `bentoml_*` e `blu_*` subindo |
-| http://localhost:3001 | painel **BLU - Monitoramento** no Grafana (sem login; admin/admin para editar) |
+| http://localhost:3001 | painel **BLU - Monitoramento** no Grafana (sem login; admin/admin para editar) e, pelo link no topo, o **BLU - Estatísticas (AV2)** |
 | http://localhost:9090/targets | o Prometheus coletando o serviço (`host.docker.internal:3000`, estado `UP`) |
 | http://localhost:9090/alerts | as regras de alerta de câmera e se alguma está disparando (seção 6.6) |
 | http://localhost:8025 | a caixa de e-mail local (Mailpit), onde chegam os e-mails de alerta |
@@ -731,30 +734,55 @@ com fórmulas, a partir de uma foto real do `/metrics`.
 | Grafana | Não guarda dados: consulta o Prometheus. |
 | Log em arquivo | Até 6 arquivos de 10 MB, cerca de 25 mil pedidos. |
 
-Painéis do Grafana (`monitoramento/grafana/dashboards/blu.json`, carregado
-automaticamente):
+São dois dashboards, carregados automaticamente de
+`monitoramento/grafana/dashboards/`, com um link para o outro no topo:
+- **BLU - Monitoramento** (`blu.json`), o painel inicial, com a operação do
+  serviço;
+- **BLU - Estatísticas (AV2)** (`blu_estatisticas.json`), com o drift e os
+  percentis exatos (seção 9.7).
+
+Painéis do **BLU - Monitoramento**:
+
 | Painel | Tipo de gráfico | Por que este tipo |
 |---|---|---|
-| Pedidos (5 min), taxa de erros, latência p95, ocupação atual | cartões com o número | leitura de relance do estado atual; a cor muda nos limites (ex.: erros acima de 5%) |
+| Pedidos, erros 4xx, falhas 5xx, p95 estimado, p95 exato, ocupação média | cartões com o número | leitura de relance do estado atual; a cor muda nos limites (p95 vermelho acima do SLA de exemplo de 400 ms; qualquer 5xx em vermelho) |
 | Pedidos por segundo, por endpoint e status | linhas | volume ao longo do tempo, com uma série por combinação |
-| Taxa de erros por endpoint | linhas, em % | compara os endpoints na mesma escala |
-| Latência p50 / p95 / p99 | linhas | mostra o típico (p50) e a cauda (p95/p99). Só respostas 200: os erros 400 respondem em milissegundos e puxariam os quantis para baixo |
+| Taxa de erros: cliente (4xx) × servidor (5xx) | linhas, em % | separa o erro de quem chama (arquivo inválido) da falha do serviço, que é o que importa para a operação |
+| Latência de `/prever_ocupacao`: estimada × p95 exato | linhas em escala log, com o SLA tracejado | p50/p95/p99 estimados pelas faixas do histograma e, em branco, o p95 exato do exportador de drift. A diferença entre os dois mostra o erro da estimativa por faixas. Só respostas 200: os erros 400 respondem em milissegundos e puxariam os quantis para baixo |
 | Histograma da latência no tempo | heatmap | a distribuição inteira minuto a minuto, que os quantis resumem |
 | Nitidez e luminância | linhas (mediana e p10) com a faixa proibida em vermelho | o p10 mostra a parte pior das imagens chegando à faixa de problema antes da mediana |
 | Imagens com problema de qualidade | linhas, em % das imagens dos últimos 5 min, com a linha de 30% | é exatamente o que o alerta avalia (seção 6.6); cada motivo é uma linha independente |
-| Imagens suspeitas por minuto | barras **empilhadas** de 1 minuto | o total do minuto e a parte de cada motivo, sem um motivo cobrir o outro |
+| Ocupação das vagas ao longo do tempo | área, em % | a informação de negócio do serviço; mudança brusca sem mudança real no estacionamento sugere erro do modelo |
 | Vagas detectadas por imagem | linha (média) com referência tracejada em 7 | queda sustentada abaixo de 7 indica câmera deslocada ou vaga encoberta |
 | Confiança média das detecções | linhas por estado (LIVRE / OCUPADA) | queda de confiança costuma vir antes do erro |
 
-O `docker-compose.yml` sobe cinco contêineres:
+**O que mudou na revisão deste painel:**
+- **A taxa de erros foi separada em 4xx e 5xx.** Antes, os 10% de arquivos
+  inválidos do `just carga` deixavam o cartão laranja, como se o serviço
+  estivesse falhando.
+- **O p95 agora é só do `/prever_ocupacao`, fica vermelho acima de 400 ms e
+  ganhou o valor exato ao lado.** Antes, o cartão misturava os dois
+  endpoints e só mudava de cor a partir de 1 s. Além disso, as faixas do
+  histograma do BentoML pulam de 100 para 250 e 500 ms, e o
+  `histogram_quantile` interpola entre elas, então o valor é aproximado.
+- **"Ocupação (última imagem)" virou média de 5 minutos.** Uma única foto
+  fazia o número pular entre 0% e 100%.
+- **O painel "Imagens suspeitas por minuto" saiu**, porque repetia o de
+  "% com problema". No lugar entrou a ocupação ao longo do tempo.
+- **O heatmap não mostra mais as faixas vazias acima de 10 s.**
+
+O `docker-compose.yml` sobe seis contêineres:
 - **`blu`:** o serviço, na imagem gerada por `just docker`. O log é gravado em
   `./logs` por um volume montado.
 - **`prometheus`:** coleta o `/metrics` em `host.docker.internal:3000`, a
   porta 3000 da máquina. É o contêiner `blu` publicado ali, ou o `just serve`
   no modo sem contêiner. Um alvo só para os dois modos evita contar o mesmo
   serviço duas vezes. Também avalia as regras de alerta (seção 6.6).
-- **`grafana`:** o painel.
+- **`grafana`:** os dois dashboards.
 - **`alertmanager`** e **`mailpit`:** os alertas por e-mail (seção 6.6).
+- **`estatisticas`:** o exportador de drift (seção 9.7), na porta 9101. Lê o
+  log em `./logs` e a referência em `./estatisticas`, e o Prometheus coleta
+  as métricas dele.
 
 O contêiner do serviço roda como root. O usuário padrão da imagem do BentoML
 (`bentoml`, uid 1034) não teria permissão de escrita na pasta `./logs`
@@ -860,17 +888,21 @@ scripts/
   exportar_metrics.py - foto do /metrics em planilha com fórmulas (just planilha)
   gerar_producao.py   - conjunto de produção: 120 variações das fotos de samples/ (seção 9)
   submeter_conjunto.py - manda um conjunto ao serviço e grava tempo e respostas (seção 9)
-  relatorio_estatisticas.py - p90/p95/p99, KS da nitidez e PSI de ocupadas (seção 9)
+  relatorio_estatisticas.py - p90/p95/p99, boxplot/violino, KS e PSI (seção 9)
+  exportador_drift.py - KS, PSI e percentis exatos ao vivo para o Grafana (seção 9.7)
+  _estatisticas.py    - funções de cálculo (percentis, KS, PSI) usadas pelos dois acima
 referencia/       - conjunto de referência (245 fotos de treino) e resumo com percentis
 estatisticas/     - respostas dos dois conjuntos (CSV), relatorio.md e gráficos (seção 9)
 monitoramento/
   prometheus.yml  - coleta do /metrics e ligação com o Alertmanager
   alertas.yml     - regras de alerta de qualidade da imagem (câmera)
   alertmanager/   - configuração do Alertmanager e modelo do e-mail de alerta
-  grafana/        - fonte de dados e painel do Grafana (provisionados)
-docs/             - metrics.md (como ler o /metrics), planilha e screenshot do Grafana
+  grafana/        - fonte de dados e os dois dashboards do Grafana (provisionados)
+  exportador/     - Dockerfile do exportador de drift (contêiner estatisticas)
+docs/             - metrics.md (como ler o /metrics), planilha, screenshot do Grafana e
+                    relatorio_av2.pdf (relatório da seção 9; fonte em relatorio_av2.html)
 docker-compose.yml - sobe o serviço (3000), Prometheus (9090), Grafana (3001),
-                     Alertmanager (9093) e Mailpit (8025)
+                     Alertmanager (9093), Mailpit (8025) e exportador de drift (9101)
 .env.alertas.example - modelo para mandar os alertas a um e-mail de verdade
 samples/          - 3 imagens de exemplo (maquete inteira, vista de cima) + 1 arquivo
                     inválido, para os testes da seção 4
@@ -896,7 +928,9 @@ ao serviço:
 3. a comparação entre os dois conjuntos de uma variável de entrada
    (`nitidez`, por KS) e de uma variável de saída (`ocupadas`, por PSI).
 
-O relatório completo, com tabelas e gráficos, está em
+O relatório de entrega, com 2 páginas, está em
+[`docs/relatorio_av2.pdf`](docs/relatorio_av2.pdf). O relatório gerado pelo
+script, com todas as tabelas e gráficos, está em
 [`estatisticas/relatorio.md`](estatisticas/relatorio.md).
 
 ### 9.1. Como rodar
@@ -914,7 +948,11 @@ O `just av2` executa, em ordem:
 | gera 120 imagens de produção | `just gerar-producao` | `dados/producao/` e `manifesto.csv` com os parâmetros de cada imagem |
 | submete a referência | `just submeter referencia train-maquete/images` | `estatisticas/respostas_referencia.csv` |
 | submete a produção | `just submeter producao dados/producao` | `estatisticas/respostas_producao.csv` |
-| calcula as estatísticas | `just estatisticas` | `estatisticas/relatorio.md` e os gráficos `latencia.png`, `nitidez.png` e `ocupadas.png` |
+| calcula as estatísticas | `just estatisticas` | `estatisticas/relatorio.md` e os gráficos `latencia.png`, `latencia_boxplot_violino.png`, `nitidez.png` e `ocupadas.png` |
+
+Enquanto o `just av2` roda, o painel **BLU - Estatísticas (AV2)** no Grafana
+(http://localhost:3001) mostra o KS, o PSI e os percentis mudando ao vivo
+(seção 9.7).
 
 O `train-maquete/` não é versionado (ver seção 5), mas os CSVs de resposta
 são. Sem os datasets, `uv run just estatisticas` refaz o relatório a partir
@@ -979,9 +1017,10 @@ Como ler:
   depende de poucos pedidos e muda bastante de uma rodada para outra. O
   intervalo de confiança do p95 por bootstrap (120 a 132 ms) mostra que o
   p95 é bem mais estável.
-- **O conteúdo da imagem não muda o tempo:** a referência e a produção têm
+- **O que aparece na foto não muda o tempo:** a referência e a produção têm
   praticamente o mesmo p95 (125 contra 126 ms). O modelo redimensiona toda
-  imagem para 640 px antes da inferência.
+  imagem para 640 px antes da inferência. Só o **formato** da foto pesa um
+  pouco, como mostra o violino abaixo.
 
 > **O estado da máquina pesa no resultado.** Na primeira rodada, feita logo
 > depois de ligar o Docker Desktop, o p95 da referência deu **224 ms**, e a
@@ -991,6 +1030,58 @@ Como ler:
 > isso, um SLA deve ser medido com o serviço aquecido, em mais de uma rodada
 > e nas mesmas condições de produção. Com vários clientes ao mesmo tempo, os
 > percentis seriam maiores que os deste teste sequencial.
+
+#### Boxplot e gráfico de violino
+
+![Boxplot e violino do tempo de resposta](estatisticas/latencia_boxplot_violino.png)
+
+| Conjunto | bigode inf. | Q1 | mediana | média | Q3 | bigode sup. | atípicos |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| referência | 47,4 | 70,4 | 76,1 | 80,8 | 86,1 | 109,5 | 25 (10,2%) |
+| produção | 64,0 | 74,3 | 78,4 | 84,8 | 88,9 | 104,5 | 18 (15,0%) |
+| todos | 49,7 | 71,5 | 76,9 | 82,1 | 86,4 | 105,4 | 50 (13,7%) |
+
+Valores em ms. Os bigodes seguem a regra de Tukey: vão até o pedido mais
+extremo a no máximo 1,5 IQR da caixa.
+
+**O que o boxplot mostra:**
+- **A caixa é estreita:** metade dos pedidos ficou entre 71 e 86 ms (IQR de
+  15 ms). O tempo típico é bem previsível.
+- **A cauda é só para cima:** a média (82 ms, o losango) fica acima da
+  mediana (77 ms), e os pontos atípicos estão todos acima do bigode
+  superior. Nenhum pedido foi anormalmente rápido, mas cerca de 14% foram
+  anormalmente lentos.
+- **Os dois conjuntos são parecidos:** as caixas quase coincidem. A produção
+  tem o bigode inferior mais alto (64 ms) porque não tem o grupo de pedidos
+  rápidos da referência, explicado abaixo.
+
+**O que o violino mostra e o boxplot esconde:**
+- **Os "atípicos" não são pontos soltos, são um grupo.** No violino, entre
+  110 e 140 ms, há um segundo bojo, pequeno mas claro, nos dois conjuntos. O
+  boxplot marca esses pedidos como atípicos um a um, e fica parecendo ruído.
+  No log do servidor, o modelo leva o mesmo tempo nesses pedidos (cerca de
+  58 ms, contra 50 a 55 ms nos demais). Os cerca de 60 ms a mais acontecem
+  fora da inferência.
+  - Eles chegam em **rajadas**: vários pedidos lentos seguidos, com 0,1 a
+    0,4 s de intervalo.
+  - **Não** acompanham a coleta do Prometheus, que é a cada 5 s, nem o tipo
+    de imagem.
+  - A causa mais provável é disputa de CPU na máquina, com o Docker Desktop
+    no Windows dividindo o processador com outros programas. Não foi
+    confirmada.
+- **A referência tem um grupo rápido, por volta de 54 ms**, que a produção não
+  tem. O violino da referência se alarga embaixo, e o da produção termina em
+  64 ms. São as fotos de treino estreitas e compridas, com proporção de 1:2
+  ou mais estreita (por exemplo, 739 × 1600 px): 45 das 245, com mediana de
+  57 ms. O modelo encaixa a foto num quadro de 640 px mantendo a proporção, e
+  uma foto estreita gera uma matriz menor: a inferência cai de cerca de 52
+  para 37 ms. As fotos de produção têm todas proporção perto de 4:5, então
+  não formam esse grupo.
+- **Consequência para o SLA:** o p95 (126 ms) cai dentro do bojo lento. Ou
+  seja, o p95 é definido por esse grupo de pedidos atrasados em rajada, e não
+  pelo tempo típico do modelo. Para baixar o p95, o ganho está em tirar a
+  disputa de CPU (máquina dedicada, mais CPU para o contêiner), e não em
+  acelerar o modelo.
 
 ### 9.4. Variável de entrada: `nitidez` → KS
 
@@ -1070,9 +1161,61 @@ Como ler:
   (`just referencia --pasta <fotos>` e `just submeter referencia <fotos>`).
   A partir daí, um KS ou PSI alto volta a significar o que deve: a câmera
   mudou (foco, luz, posição) ou o padrão de ocupação mudou. Acompanhados de
-  forma contínua sobre o log (`just analisar`), esses dois números dizem se
-  o modelo está recebendo o tipo de imagem para o qual foi preparado e se
-  está respondendo como no treino.
+  forma contínua (seção 9.7), esses dois números dizem se o modelo está
+  recebendo o tipo de imagem para o qual foi preparado e se está respondendo
+  como no treino.
+
+### 9.7. Dashboard no Grafana: KS, PSI e percentis ao vivo
+
+No lugar de um dashboard em Streamlit, as estatísticas desta seção estão no
+Grafana do projeto, no painel **BLU - Estatísticas (AV2)**
+(http://localhost:3001, link no topo do painel principal). Elas são
+calculadas **continuamente**, sobre os pedidos que chegam ao serviço, e não
+só uma vez pelo relatório.
+
+**Como funciona:** o contêiner `estatisticas` roda o
+[`scripts/exportador_drift.py`](scripts/exportador_drift.py). A cada 10 s,
+ele:
+1. lê as linhas novas do log `logs/inferencias.jsonl`;
+2. guarda os **últimos 100 pedidos** bem-sucedidos (a "janela");
+3. compara a janela com o conjunto de referência
+   (`estatisticas/respostas_referencia.csv`) pelas mesmas funções do
+   relatório ([`scripts/_estatisticas.py`](scripts/_estatisticas.py)): KS da
+   `nitidez` e PSI de `ocupadas`;
+4. calcula os percentis **exatos** do tempo de resposta da janela, por
+   endpoint;
+5. publica tudo em http://localhost:9101/metrics. O Prometheus coleta e o
+   Grafana desenha.
+
+O que o painel mostra:
+
+| Parte | Painéis |
+|---|---|
+| Resumo | pedidos na janela; p95 exato (vermelho acima de 400 ms); KS e PSI com o veredito "estável" ou "DRIFT" |
+| Tempo de resposta | p50/p90/p95/p99 ao longo do tempo com o SLA tracejado; **boxplot ao longo do tempo** (cada vela é o boxplot dos últimos 100 pedidos: corpo de Q1 a Q3, pavios até os bigodes, linha branca na mediana); tabela com o resumo não paramétrico dos dois endpoints |
+| Entrada (nitidez) | D do KS ao longo do tempo contra o D crítico de α = 0,05; quartis da nitidez, referência × janela |
+| Saída (vagas ocupadas) | PSI ao longo do tempo em escala log, com os limites 0,1 e 0,25; distribuição de vagas ocupadas, referência × janela |
+
+**Teste ao vivo:**
+
+| Janela com... | KS da nitidez | D crítico | PSI de `ocupadas` | Painel |
+|---|---:|---:|---:|---|
+| as fotos de referência (`just submeter referencia ...`) | 0,118 | 0,161 | 0,019 | estável / estável |
+| as fotos de produção (`just submeter producao ...`) | 0,311 | 0,161 | 15,3 | DRIFT / DRIFT |
+
+O painel acusa drift só quando a entrada muda.
+
+O gráfico de violino não existe no Grafana. Ele está no relatório
+(`estatisticas/latencia_boxplot_violino.png`, seção 9.3).
+
+**Diferença entre o painel e o relatório:**
+- **Tempo de resposta:** o relatório mede no cliente, do envio à resposta. O
+  painel mede no servidor (`latencia_total_ms` do log), sem a rede.
+- **Janela:** o relatório olha cada conjunto inteiro (245 e 120 imagens). O
+  painel olha sempre os últimos 100 pedidos, venham de onde vierem.
+
+Para mudar o tamanho da janela ou o intervalo de cálculo, altere
+`BLU_DRIFT_JANELA` e `BLU_DRIFT_INTERVALO` no `docker-compose.yml`.
 
 ## Diferenciais implementados
 

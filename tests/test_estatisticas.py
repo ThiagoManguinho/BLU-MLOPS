@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from relatorio_estatisticas import ic_bootstrap, ks, percentis, psi_categorico
+from _estatisticas import ic_bootstrap, ks, ks_critico, percentis, psi_categorico
 
 
 def test_percentis_de_1_a_100():
@@ -41,10 +41,10 @@ def test_ks_amostras_iguais_e_disjuntas():
 def test_psi_distribuicoes_iguais_da_zero():
     valores = np.array([0, 1, 2, 3, 4, 5, 6, 7] * 10)
 
-    psi, tabela = psi_categorico(valores, valores, list(range(8)))
+    psi, por_categoria = psi_categorico(valores, valores, list(range(8)))
 
     assert psi == pytest.approx(0)
-    assert tabela["p_ref"].sum() == pytest.approx(1)
+    assert por_categoria["p_ref"].sum() == pytest.approx(1)
 
 
 def test_psi_distribuicao_deslocada_indica_drift():
@@ -54,3 +54,17 @@ def test_psi_distribuicao_deslocada_indica_drift():
     psi, _ = psi_categorico(referencia, producao, list(range(8)))
 
     assert psi > 0.25
+
+
+def test_bigodes_do_boxplot_seguem_a_regra_de_tukey():
+    valores = np.array([10.0] * 20 + [11.0] * 20 + [12.0] * 20 + [100.0])
+
+    resumo = percentis(valores)
+
+    assert resumo["bigode_superior"] == 12.0
+    assert resumo["atipicos"] == 1
+
+
+def test_ks_critico_diminui_com_mais_amostras():
+    assert ks_critico(100, 100) == pytest.approx(1.358 * (2 / 100) ** 0.5)
+    assert ks_critico(1000, 1000) < ks_critico(100, 100)

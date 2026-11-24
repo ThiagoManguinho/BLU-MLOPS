@@ -6,8 +6,8 @@ os gráficos ao lado:
 
 1. **Tempo de resposta** de `POST /prever_ocupacao`: estatísticas não
    paramétricas (mínimo, quartis, p90, p95, p99, máximo, IQR), intervalo de
-   confiança do p95 por bootstrap e comparação com um SLA de exemplo
-   (p95 < 400 ms).
+   confiança do p95 por bootstrap, comparação com um SLA de exemplo
+   (p95 < 400 ms), histograma, boxplot e gráfico de violino.
 2. **Variável de entrada `nitidez`** (contínua): distância de Kolmogorov-Smirnov
    entre referência e produção.
 3. **Variável de saída `ocupadas`** (inteira de 0 a 7, discreta): Population
@@ -29,67 +29,18 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from analisar_log import leitura_psi
-from scipy.stats import ks_2samp
+from _estatisticas import (
+    ALFA,
+    CATEGORIAS_OCUPADAS,
+    ic_bootstrap,
+    ks,
+    ks_critico,
+    leitura_psi,
+    percentis,
+    psi_categorico,
+)
 
-PERCENTIS = (25, 50, 75, 90, 95, 99)
-CATEGORIAS_OCUPADAS = list(range(8))  # 0 a 7 vagas ocupadas
-_EPS = 1e-6
-_ALFA = 0.05
-
-
-# --- Funções de cálculo (testadas em tests/test_estatisticas.py) ---------------
-
-
-def percentis(valores: np.ndarray) -> dict:
-    """Resumo não paramétrico: não supõe nenhuma distribuição.
-
-    Usa a interpolação linear do numpy (padrão), a mesma do Excel
-    (PERCENTIL.INC) e do pandas.
-    """
-    valores = np.asarray(valores, dtype=float)
-    resumo = {"n": int(valores.size), "min": float(valores.min()), "max": float(valores.max())}
-    for q in PERCENTIS:
-        resumo[f"p{q}"] = float(np.percentile(valores, q))
-    resumo["iqr"] = resumo["p75"] - resumo["p25"]
-    return resumo
-
-
-def ic_bootstrap(
-    valores: np.ndarray, q: float = 95, reamostragens: int = 2000, semente: int = 0
-) -> tuple[float, float]:
-    """Intervalo de 95% do percentil q por bootstrap (percentis da reamostragem)."""
-    valores = np.asarray(valores, dtype=float)
-    gerador = np.random.default_rng(semente)
-    amostras = gerador.choice(valores, size=(reamostragens, valores.size), replace=True)
-    estimativas = np.percentile(amostras, q, axis=1)
-    return float(np.percentile(estimativas, 2.5)), float(np.percentile(estimativas, 97.5))
-
-
-def ks(referencia: np.ndarray, producao: np.ndarray) -> tuple[float, float]:
-    """Distância D de Kolmogorov-Smirnov (maior diferença entre as CDFs) e p-valor."""
-    resultado = ks_2samp(referencia, producao)
-    return float(resultado.statistic), float(resultado.pvalue)
-
-
-def psi_categorico(
-    referencia: np.ndarray, producao: np.ndarray, categorias: list[int]
-) -> tuple[float, pd.DataFrame]:
-    """PSI com uma faixa por categoria.
-
-    PSI = soma (p_prod - p_ref) * ln(p_prod / p_ref). Categorias sem nenhum
-    caso recebem 1e-6 para o logaritmo existir.
-    """
-    referencia = np.asarray(referencia)
-    producao = np.asarray(producao)
-    p_ref = np.array([(referencia == c).mean() for c in categorias])
-    p_prod = np.array([(producao == c).mean() for c in categorias])
-    a, b = np.maximum(p_ref, _EPS), np.maximum(p_prod, _EPS)
-    contribuicao = (b - a) * np.log(b / a)
-    tabela = pd.DataFrame(
-        {"valor": categorias, "p_ref": p_ref, "p_prod": p_prod, "contribuicao": contribuicao}
-    )
-    return float(contribuicao.sum()), tabela
+_CORES_PERCENTIS = ((90, "#55A868"), (95, "#DD8452"), (99, "#C44E52"))
 
 
 # --- Gráficos -------------------------------------------------------------------
@@ -97,22 +48,75 @@ def psi_categorico(
 
 def grafico_latencia(dados: dict[str, np.ndarray], pasta: Path) -> Path:
     todos = np.concatenate(list(dados.values()))
-    figura, (eixo_h, eixo_b) = plt.subplots(1, 2, figsize=(12, 4.2))
-    eixo_h.hist(todos, bins=40, color="#4C72B0", alpha=0.8)
-    for q, cor in ((90, "#55A868"), (95, "#DD8452"), (99, "#C44E52")):
+    figura, eixo_h = plt.subplots(figsize=(12, 4.2))
+    eixo_h.hist(todos, bins=60, color="#4C72B0", alpha=0.8)
+    for q, cor in _CORES_PERCENTIS:
         valor_q = np.percentile(todos, q)
         eixo_h.axvline(valor_q, color=cor, linestyle="--", label=f"p{q} = {valor_q:.0f} ms")
-    eixo_h.set_title(f"Tempo de resposta, todos os pedidos (n={todos.size})")
+    eixo_h.set_title(f"Histograma do tempo de resposta, todos os pedidos (n={todos.size})")
     eixo_h.set_xlabel("ms")
+    eixo_h.set_ylabel("pedidos")
     eixo_h.legend()
-    eixo_b.boxplot(list(dados.values()), tick_labels=list(dados), whis=1.5)
-    eixo_b.set_title("Boxplot por conjunto")
-    eixo_b.set_ylabel("ms")
     figura.tight_layout()
     caminho = pasta / "latencia.png"
     figura.savefig(caminho, dpi=110)
     plt.close(figura)
     return caminho
+
+
+def grafico_boxplot_violino(dados: dict[str, np.ndarray], pasta: Path) -> Path:
+    """Boxplot e gráfico de violino do tempo de resposta, lado a lado.
+
+    O boxplot resume em 5 números (bigodes, quartis e mediana) e marca os
+    pontos atípicos. O violino desenha a densidade estimada (KDE): onde ele é
+    largo há muitos pedidos com aquele tempo. Ele mostra o que o boxplot
+    esconde, como mais de um "pico" de tempos.
+    """
+    nomes = list(dados)
+    valores = [dados[n] for n in nomes]
+    posicoes = np.arange(1, len(nomes) + 1)
+    figura, (eixo_b, eixo_v) = plt.subplots(1, 2, figsize=(13, 5.2), sharey=True)
+
+    eixo_b.boxplot(valores, positions=posicoes, tick_labels=nomes, whis=1.5, widths=0.5,
+                   showmeans=True, meanprops={"marker": "D", "markerfacecolor": "white",
+                                              "markeredgecolor": "black", "markersize": 5})
+    eixo_b.set_title("Boxplot (bigodes = 1,5 IQR; losango = média)")
+    eixo_b.set_ylabel("tempo de resposta (ms)")
+
+    partes = eixo_v.violinplot(valores, positions=posicoes, widths=0.8, showextrema=False,
+                               bw_method=0.15)
+    for corpo in partes["bodies"]:
+        corpo.set_facecolor("#4C72B0")
+        corpo.set_alpha(0.45)
+    for x, v in zip(posicoes, valores, strict=True):
+        eixo_v.scatter(np.full(v.size, x) + np.random.default_rng(0).uniform(-0.12, 0.12, v.size),
+                       v, s=4, color="black", alpha=0.35, zorder=3)
+        for q, cor in _CORES_PERCENTIS:
+            eixo_v.hlines(np.percentile(v, q), x - 0.3, x + 0.3, color=cor, linewidth=1.6)
+        eixo_v.hlines(np.median(v), x - 0.3, x + 0.3, color="black", linewidth=1.6)
+    eixo_v.set_xticks(posicoes, nomes)
+    eixo_v.set_title("Violino (preto = mediana; verde/laranja/vermelho = p90/p95/p99)")
+    figura.tight_layout()
+    caminho = pasta / "latencia_boxplot_violino.png"
+    figura.savefig(caminho, dpi=110)
+    plt.close(figura)
+    return caminho
+
+
+def modas(valores: np.ndarray, largura_ms: float = 5.0) -> list[float]:
+    """Picos da densidade (KDE), do maior para o menor, que tenham pelo menos
+    15% da altura do maior. É o que o violino mostra e o boxplot não."""
+    from scipy.stats import gaussian_kde
+
+    valores = np.asarray(valores, dtype=float)
+    grade = np.arange(valores.min(), valores.max() + largura_ms, 0.5)
+    densidade = gaussian_kde(valores, bw_method=0.15)(grade)
+    picos = [
+        i for i in range(1, grade.size - 1)
+        if densidade[i] >= densidade[i - 1] and densidade[i] > densidade[i + 1]
+        and densidade[i] >= 0.15 * densidade.max()
+    ]
+    return [float(grade[i]) for i in sorted(picos, key=lambda i: -densidade[i])]
 
 
 def grafico_nitidez(referencia: np.ndarray, producao: np.ndarray, pasta: Path) -> Path:
@@ -194,6 +198,7 @@ def main() -> int:
         acima = float((valores > args.sla_ms).mean())
         linhas_lat.append((nome, resumo, baixo, alto, acima))
     grafico_latencia(latencias, args.pasta)
+    grafico_boxplot_violino(latencias_todas, args.pasta)
 
     # 2. KS da nitidez (entrada).
     nit_ref = ref["nitidez"].dropna().to_numpy(dtype=float)
@@ -202,10 +207,11 @@ def main() -> int:
     grafico_nitidez(nit_ref, nit_prod, args.pasta)
 
     # 3. PSI de ocupadas (saída).
-    valor_psi, tabela_psi = psi_categorico(
+    valor_psi, por_categoria = psi_categorico(
         ref["ocupadas"].to_numpy(dtype=int), prod["ocupadas"].to_numpy(dtype=int),
         CATEGORIAS_OCUPADAS,
     )
+    tabela_psi = pd.DataFrame(por_categoria)
     grafico_ocupadas(tabela_psi, args.pasta)
 
     # Relatório em Markdown.
@@ -245,6 +251,28 @@ def main() -> int:
              "SLAs.\n")
     s.append("![Tempo de resposta](latencia.png)\n")
 
+    s.append("### Boxplot e gráfico de violino\n")
+    s.append("![Boxplot e violino do tempo de resposta](latencia_boxplot_violino.png)\n")
+    s.append("| Conjunto | bigode inferior | Q1 | mediana | média | Q3 | bigode superior "
+             "| atípicos | picos da densidade (violino) |")
+    s.append("|---|---:|---:|---:|---:|---:|---:|---:|---|")
+    for nome, valores in latencias_todas.items():
+        r = percentis(valores)
+        picos = ", ".join(f"{_ms(m)}" for m in modas(valores))
+        s.append(
+            f"| {nome} | {_ms(r['bigode_inferior'])} | {_ms(r['p25'])} | {_ms(r['p50'])} | "
+            f"{_ms(float(np.mean(valores)))} | {_ms(r['p75'])} | {_ms(r['bigode_superior'])} | "
+            f"{r['atipicos']} ({_num(r['atipicos'] / r['n'] * 100, 1)}%) | {picos} |"
+        )
+    s.append("\nValores em milissegundos. Os picos estão em ordem de altura, do mais alto "
+             "para o mais baixo.\n")
+    s.append("- **Boxplot:** a caixa vai do Q1 ao Q3 (metade central dos pedidos), a linha é a "
+             "mediana, e os bigodes vão até o pedido mais extremo dentro de 1,5 IQR além da "
+             "caixa. Os pontos acima do bigode são atípicos.")
+    s.append("- **Violino:** a largura é a densidade estimada (KDE) dos tempos. Onde ele é largo, "
+             "muitos pedidos levaram aquele tempo. Mais de um pico indica grupos de pedidos "
+             "com tempos diferentes, algo que o boxplot não mostra.\n")
+
     s.append("## 2. Conjuntos submetidos\n")
     s.append("| Conjunto | Origem | Imagens válidas (status 200) |")
     s.append("|---|---|---:|")
@@ -260,10 +288,12 @@ def main() -> int:
     for nome, valores in (("referência", nit_ref), ("produção", nit_prod)):
         q1, q2, q3 = np.percentile(valores, [25, 50, 75])
         s.append(f"| {nome} | {valores.size} | {_num(q1, 1)} | {_num(q2, 1)} | {_num(q3, 1)} |")
-    leitura_ks = ("as distribuições são diferentes (drift)" if p_ks < _ALFA
+    leitura_ks = ("as distribuições são diferentes (drift)" if p_ks < ALFA
                   else "não há evidência de diferença")
-    s.append(f"\n**KS: D = {_num(d_ks)}**, p-valor = {p_ks:.3g}. Com α = {_num(_ALFA, 2)}, "
-             f"{leitura_ks}. D é a maior distância vertical entre as duas CDFs: "
+    d_critico = ks_critico(nit_ref.size, nit_prod.size)
+    s.append(f"\n**KS: D = {_num(d_ks)}**, p-valor = {p_ks:.3g}. Com α = {_num(ALFA, 2)}, "
+             f"{leitura_ks} (o D crítico para estes tamanhos de amostra é "
+             f"{_num(d_critico)}). D é a maior distância vertical entre as duas CDFs: "
              f"em algum valor de nitidez, as proporções de imagens abaixo dele diferem em "
              f"{_num(d_ks * 100, 1)} pontos percentuais.\n")
     s.append("![Nitidez](nitidez.png)\n")
