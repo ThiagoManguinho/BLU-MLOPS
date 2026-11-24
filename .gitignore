@@ -18,6 +18,10 @@ bentoml_build/
 logs/
 analise/
 
+# Conjunto de produção gerado por scripts/gerar_producao.py (reprodutível pela
+# semente; as respostas e o relatório em estatisticas/ são versionados)
+dados/
+
 # Segredos locais
 .env
 .env.alertas

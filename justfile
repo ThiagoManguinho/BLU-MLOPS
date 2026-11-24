@@ -85,3 +85,27 @@ analisar:
 # Refaz o conjunto de referência (precisa de train-maquete/, que não é versionado).
 referencia *args:
     uv run python scripts/gerar_referencia.py {{args}}
+
+# --- Estatísticas de monitoramento (seção 9 do README) ------------------------
+
+# Gera o conjunto de produção: 120 variações realistas das fotos de samples/.
+gerar-producao *args:
+    uv run python scripts/gerar_producao.py {{args}}
+
+# Exemplo: just submeter referencia train-maquete/images
+#
+# Manda cada imagem da pasta ao /prever_ocupacao e grava estatisticas/respostas_<conjunto>.csv.
+submeter conjunto pasta:
+    uv run python scripts/submeter_conjunto.py --conjunto {{conjunto}} --pasta {{pasta}}
+
+# Percentis do tempo de resposta, KS da nitidez e PSI de ocupadas -> estatisticas/relatorio.md.
+estatisticas *args:
+    uv run python scripts/relatorio_estatisticas.py {{args}}
+
+# Requer o serviço no ar (just up) e train-maquete/.
+#
+# Faz tudo em ordem: gera a produção, submete os dois conjuntos e monta o relatório.
+av2: gerar-producao
+    uv run python scripts/submeter_conjunto.py --conjunto referencia --pasta train-maquete/images
+    uv run python scripts/submeter_conjunto.py --conjunto producao --pasta dados/producao
+    uv run python scripts/relatorio_estatisticas.py

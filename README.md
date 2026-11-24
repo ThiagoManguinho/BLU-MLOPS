@@ -852,12 +852,17 @@ tests/
   test_logic.py         - testes da regra de negócio (rápidos, sem carregar o modelo)
   test_render.py        - testes do desenho das anotações (rápidos, sem carregar o modelo)
   test_monitoramento.py - características da imagem, formato do log, rotação e middleware
+  test_estatisticas.py  - percentis, KS e PSI do relatório da seção 9
 scripts/
   gerar_carga.py      - carga no serviço (just carga), com imagens degradadas opcionais
   gerar_referencia.py - conjunto de referência a partir das fotos de treino (just referencia)
   analisar_log.py     - log × referência: KS, PSI, histogramas e boxplots (just analisar)
   exportar_metrics.py - foto do /metrics em planilha com fórmulas (just planilha)
+  gerar_producao.py   - conjunto de produção: 120 variações das fotos de samples/ (seção 9)
+  submeter_conjunto.py - manda um conjunto ao serviço e grava tempo e respostas (seção 9)
+  relatorio_estatisticas.py - p90/p95/p99, KS da nitidez e PSI de ocupadas (seção 9)
 referencia/       - conjunto de referência (245 fotos de treino) e resumo com percentis
+estatisticas/     - respostas dos dois conjuntos (CSV), relatorio.md e gráficos (seção 9)
 monitoramento/
   prometheus.yml  - coleta do /metrics e ligação com o Alertmanager
   alertas.yml     - regras de alerta de qualidade da imagem (câmera)
@@ -872,13 +877,202 @@ samples/          - 3 imagens de exemplo (maquete inteira, vista de cima) + 1 ar
 best.pt           - pesos do modelo (versionado; ver seção 5)
 bentofile.yaml    - manifesto de build/containerização do BentoML
 justfile          - atalhos: serve, demo, lint, test, docker, docker-run, up, down,
-                    monitor-up, carga, planilha, analisar, referencia
+                    monitor-up, carga, planilha, analisar, referencia,
+                    gerar-producao, submeter, estatisticas, av2
 requirements.txt  - instala só o uv via pip (não as dependências do serviço)
 ```
 
 ## 8. Uso de IA
 
 Utilização do Claude Opus 5.5 para criação inicial do esqueleto do código e correção de erros, e utilização do Copilot do VS Code para verificar o funcionamento de algumas funcionalidades do projeto.
+
+## 9. Estatísticas de monitoramento: percentis, KS e PSI
+
+Esta seção calcula as estatísticas de monitoramento a partir de pedidos reais
+ao serviço:
+1. os percentis p90, p95 e p99 do tempo de resposta de `POST /prever_ocupacao`;
+2. um conjunto de **referência** e um de **produção**, cada um com mais de 100
+   imagens válidas;
+3. a comparação entre os dois conjuntos de uma variável de entrada
+   (`nitidez`, por KS) e de uma variável de saída (`ocupadas`, por PSI).
+
+O relatório completo, com tabelas e gráficos, está em
+[`estatisticas/relatorio.md`](estatisticas/relatorio.md).
+
+### 9.1. Como rodar
+
+```bash
+uv run just docker    # só na primeira vez, ou se o código do serviço mudar
+uv run just up        # sobe o serviço (e o monitoramento) em contêiner
+uv run just av2       # gera a produção, submete os dois conjuntos e monta o relatório
+```
+
+O `just av2` executa, em ordem:
+
+| Passo | Comando | Saída |
+|---|---|---|
+| gera 120 imagens de produção | `just gerar-producao` | `dados/producao/` e `manifesto.csv` com os parâmetros de cada imagem |
+| submete a referência | `just submeter referencia train-maquete/images` | `estatisticas/respostas_referencia.csv` |
+| submete a produção | `just submeter producao dados/producao` | `estatisticas/respostas_producao.csv` |
+| calcula as estatísticas | `just estatisticas` | `estatisticas/relatorio.md` e os gráficos `latencia.png`, `nitidez.png` e `ocupadas.png` |
+
+O `train-maquete/` não é versionado (ver seção 5), mas os CSVs de resposta
+são. Sem os datasets, `uv run just estatisticas` refaz o relatório a partir
+dos CSVs. O `dados/producao/` também não é versionado, porque a semente fixa
+faz o `just gerar-producao` gerar sempre as mesmas imagens.
+
+Cada linha dos CSVs é um pedido, com:
+- `tempo_resposta_ms`: medido no cliente;
+- `ocupadas`, `livres` e `total_vagas`: lidos da resposta;
+- `nitidez` e `latencia_servidor_ms`: copiados do log do servidor
+  (`logs/inferencias.jsonl`) pelo `request_id`. Assim a variável de entrada
+  vem do próprio monitoramento da seção 6, e não de um cálculo à parte.
+
+### 9.2. Os dois conjuntos
+
+| Conjunto | Imagens | De onde vêm |
+|---|---:|---|
+| **Referência** | 245 | As fotos de treino do modelo (`train-maquete/images`), como o enunciado indica para quem treinou o próprio modelo. São fotos de celular, de perto. |
+| **Produção** | 120 | As 3 fotos de `samples/`, que mostram a maquete inteira vista de cima como a câmera fixa veria, com 40 variações de cada uma ([`scripts/gerar_producao.py`](scripts/gerar_producao.py)). |
+
+As variações simulam um dia de operação da câmera fixa:
+- **luz do dia:** brilho de 0,75 a 1,2 e contraste de 0,85 a 1,15;
+- **câmera levemente mexida:** rotação de até ±3° e deslocamento de até ±2%;
+- **foco e lente suja:** desfoque leve (raio de 0 a 1,2) e, em 12 das 120
+  imagens, desfoque forte (raio de 2 a 3);
+- **ruído do sensor e compressão:** ruído gaussiano de até 6 níveis de cinza
+  e JPEG com qualidade de 60 a 95.
+
+Os 365 pedidos voltaram com status `200`.
+
+### 9.3. Tempo de resposta: p90, p95 e p99
+
+Os pedidos foram enviados **um de cada vez, em sequência**, ao serviço no
+Docker, rodando em CPU. O tempo de cada pedido vai do envio até a resposta
+completa e é medido no cliente com `time.perf_counter()`. Os 3 primeiros
+pedidos são de aquecimento e ficam fora da conta, porque o primeiro pedido
+carrega o modelo e leva alguns segundos.
+
+| Conjunto | n | p50 (mediana) | p90 | p95 | p99 | máx | IC 95% do p95 |
+|---|---:|---:|---:|---:|---:|---:|---|
+| referência | 245 | 76,1 ms | 109,8 ms | 125,1 ms | 144,2 ms | 261,3 ms | 116,9 a 132,2 ms |
+| produção | 120 | 78,4 ms | 116,7 ms | 126,3 ms | 136,3 ms | 138,7 ms | 116,7 a 132,0 ms |
+| **todos** | **365** | **76,9 ms** | **114,7 ms** | **125,6 ms** | **142,9 ms** | **261,3 ms** | **120,1 a 131,5 ms** |
+
+![Tempo de resposta](estatisticas/latencia.png)
+
+Como ler:
+- **p50 = 77 ms:** metade dos pedidos foi respondida em até 77 ms.
+- **p95 = 126 ms:** 95% dos pedidos levaram até 126 ms, e só 1 em cada 20
+  passou disso. Um SLA de "p95 abaixo de 400 ms" seria **atendido com folga**:
+  o p95 ficou em cerca de um terço do limite, e nenhum pedido passou de
+  400 ms.
+- **p90 e p99:** o p90 (115 ms) e o p99 (143 ms) estão perto do p95, ou seja,
+  a cauda é curta. O único pedido muito lento (261 ms) é um ponto isolado e
+  aparece no máximo, não nos percentis.
+- **Por que percentis, e não média:** a distribuição é assimétrica, com a
+  maioria dos pedidos entre 65 e 90 ms e uma cauda à direita. A média
+  (82 ms) seria puxada pelos pedidos lentos e não diz quantos usuários
+  esperaram mais que um limite. O percentil diz isso diretamente, por isso
+  os SLAs são escritos sobre o p95.
+- **Incerteza:** com n = 365, o p99 fica entre o 4º e o 5º maior tempo, então
+  depende de poucos pedidos e muda bastante de uma rodada para outra. O
+  intervalo de confiança do p95 por bootstrap (120 a 132 ms) mostra que o
+  p95 é bem mais estável.
+- **O conteúdo da imagem não muda o tempo:** a referência e a produção têm
+  praticamente o mesmo p95 (125 contra 126 ms). O modelo redimensiona toda
+  imagem para 640 px antes da inferência.
+
+> **O estado da máquina pesa no resultado.** Na primeira rodada, feita logo
+> depois de ligar o Docker Desktop, o p95 da referência deu **224 ms**, e a
+> mediana subiu de 80 para 188 ms ao longo da própria rodada. Repetindo com o
+> ambiente estável, o p95 caiu para 125 ms e a mediana ficou em torno de
+> 75 ms do começo ao fim. Os números acima são dessa segunda rodada. Por
+> isso, um SLA deve ser medido com o serviço aquecido, em mais de uma rodada
+> e nas mesmas condições de produção. Com vários clientes ao mesmo tempo, os
+> percentis seriam maiores que os deste teste sequencial.
+
+### 9.4. Variável de entrada: `nitidez` → KS
+
+A nitidez (variância do Laplaciano, seção 6.3) é um número real não negativo,
+então é **contínua**. Pelo critério do enunciado, a comparação é pela
+**distância de Kolmogorov-Smirnov**.
+
+| Conjunto | p25 | mediana | p75 |
+|---|---:|---:|---:|
+| referência | 105,0 | 148,9 | 300,9 |
+| produção | 141,3 | 221,3 | 311,7 |
+
+**KS: D = 0,253, p-valor = 5·10⁻⁵ → as distribuições são diferentes.**
+
+![Nitidez](estatisticas/nitidez.png)
+
+Como ler:
+- D é a maior distância vertical entre as duas curvas acumuladas (CDFs). Ela
+  aparece na nitidez de 201: **66%** das fotos de referência estão abaixo
+  desse valor, contra só **41%** das de produção. Com essa diferença e essas
+  quantidades de imagens, o p-valor é muito menor que 0,05.
+- As imagens de produção são, no geral, **mais nítidas**: a mediana subiu de
+  149 para 221. A vista de cima mostra as linhas finas das 7 vagas por
+  inteiro, enquanto as fotos de celular de perto têm áreas lisas e partes
+  fora de foco.
+- A cauda de baixo é parecida nos dois conjuntos (cerca de 18% abaixo de 90),
+  porque as 12 imagens de "lente suja" da produção (nitidez de 12 a 52)
+  fazem o papel das fotos de treino menos nítidas. O KS não se importa com
+  essa cauda: a diferença está no meio da distribuição.
+
+### 9.5. Variável de saída: `ocupadas` → PSI
+
+`ocupadas` é um inteiro de 0 a 7 (a maquete tem 7 vagas), muito abaixo dos
+100 valores que o enunciado usa como limite para tratar uma variável como
+contínua. Então é **discreta**, e a comparação é pelo **Population Stability
+Index**, com uma faixa para cada valor.
+
+| ocupadas | referência | produção |
+|---:|---:|---:|
+| 0 | 13,5% | 33,3% |
+| 1 | 28,2% | 0% |
+| 2 | 35,5% | 0% |
+| 3 | 11,4% | 0% |
+| 4 | 9,0% | 33,3% |
+| 5 | 2,4% | 0% |
+| 6 | 0% | 0% |
+| 7 | 0% | 33,3% |
+
+**PSI = 14,4 → drift** (abaixo de 0,1 é estável, de 0,1 a 0,25 é mudança
+moderada, acima de 0,25 é drift).
+
+![Ocupadas](estatisticas/ocupadas.png)
+
+Como ler:
+- Na referência, a maioria das fotos tem 1 ou 2 vagas ocupadas, porque a
+  foto de perto mostra só uma parte da maquete. Na produção, cada imagem
+  mostra as 7 vagas, e as respostas são sempre 0, 4 ou 7: as três cenas de
+  `samples/` (livre, misto e ocupado).
+- **O modelo deu a mesma resposta nas 40 variações de cada cena**, incluindo
+  as 12 com desfoque forte. A mudança na saída vem da cena fotografada, e não
+  de erros do modelo causados pelas variações.
+- **Sobre o tamanho do número:** quando um valor aparece num conjunto e não
+  aparece no outro (como 7 vagas ocupadas, que não existe na referência), a
+  proporção zero vira 0,000001 para o logaritmo existir. Isso faz o PSI
+  passar de 10. O valor exato não tem significado, mas a conclusão tem: está
+  muito acima de 0,25.
+
+### 9.6. Conclusão
+
+- **Desempenho:** o endpoint responde em 77 ms na mediana e 126 ms no p95,
+  bem dentro de um SLA de 400 ms para um cliente por vez.
+- **Drift na entrada e na saída:** os dois testes apontam que a produção é
+  diferente da referência. Não é falha do modelo. A referência são fotos de
+  celular de perto, e a produção é a maquete inteira vista de cima, como a
+  câmera fixa vai ver.
+- **Próximo passo:** refazer a referência com fotos da câmera fixa
+  (`just referencia --pasta <fotos>` e `just submeter referencia <fotos>`).
+  A partir daí, um KS ou PSI alto volta a significar o que deve: a câmera
+  mudou (foco, luz, posição) ou o padrão de ocupação mudou. Acompanhados de
+  forma contínua sobre o log (`just analisar`), esses dois números dizem se
+  o modelo está recebendo o tipo de imagem para o qual foi preparado e se
+  está respondendo como no treino.
 
 ## Diferenciais implementados
 
